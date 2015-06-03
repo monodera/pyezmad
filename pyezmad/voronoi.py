@@ -9,10 +9,19 @@ from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
 
 def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
-    """
-    infile: input MUSE fits cube name
-    wave_center: central wavelenth to compute signal and noise
-    dwave: signal and noise are computed within +/- dwave from wave_center
+    """Make arrays needed for Voronoi binning routine by Cappellari & Coppin 
+
+    Args:
+        infile: input FITS MUSE cube
+        wave_center: central wavelenth to compute signal and noise
+        dwave: signal and noise are computed within +/- dwave from wave_center
+
+    Returns:
+        (x, y, signal, noise, snmap): 
+        x and y are, respectively, x and y pixel coordinates. 
+        signal and noise are signal and noise per angstrom at each pixel.  
+        All of the above arrays are with a size of NAXIS1*NAXIS2.
+        snmap is a pixel-by-pixel S/N map.
     """
 
     cube = Cube(infile)
@@ -47,7 +56,7 @@ def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_s
     dwave: signal and noise are computed +/- dwave from wave_center
     target_sn: target S/N for Voronoi binning
     """
-    
+
     #
     # Compute signal and noise at each pixel
     #
