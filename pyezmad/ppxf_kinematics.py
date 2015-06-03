@@ -96,7 +96,7 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
 
     #------------------- Setup templates -----------------------
 
-    stars_templates, lamRange_temp, logLam_temp = setup_miles_spectral_library(file_template_list, velscale, FWHM_muse)
+    stars_templates, lamRange_temp, logLam_temp = setup_miles_spectral_library(temp_list, velscale, FWHM_muse)
     stars_templates /= np.median(stars_templates) # Normalizes stellar templates by a scalar
 
     #-----------------------------------------------------------
