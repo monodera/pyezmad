@@ -6,10 +6,10 @@ import os, os.path
 
 import astropy.io.fits as fits
 from astropy.constants import c
-from scipy import ndimage
+# from scipy import ndimage
 import numpy as np
 
-from multiprocessing import Process, Queue
+from multiprocessing import Process # , Queue
 
 from ppxf import ppxf
 import ppxf_util as util
@@ -42,7 +42,7 @@ def setup_miles_spectral_library(file_template_list, velscale, FWHM_gal):
     # file_template_list = 'miles_ssp_padova_all.list'
     template_list = np.genfromtxt(file_template_list, dtype=None)
 
-    FWHM_tem = 2.51 # Vazdekis+10 spectra have a resolution FWHM of 2.51A.
+    # FWHM_tem = 2.51 # Vazdekis+10 spectra have a resolution FWHM of 2.51A.
 
     hdu = fits.open(template_list[0])
     ssp = hdu[0].data
@@ -69,13 +69,15 @@ def setup_miles_spectral_library(file_template_list, velscale, FWHM_gal):
 def read_voronoi_stack(infile):
     hdu = fits.open(infile)
     h_obj = hdu['FLUX'].header
-    h_var = hdu['VAR'].header
+    # h_var = hdu['VAR'].header
     wave = h_obj['CRVAL1'] + h_obj['CDELT1']*(np.arange(h_obj['NAXIS1'])-h_obj['CRPIX1']+1)
     return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
 
 #------------------------------------------------------------------------------
 
-def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None, wmin_fit=4800, wmax_fit=7000., n_thread=12):
+def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
+                                vel_init=1000., sigma_init=50., dv_mask=200.,
+                                wmin_fit=4800, wmax_fit=7000., n_thread=12):
 
     if not os.path.exists(npy_dir):
         os.mkdir(npy_dir)
@@ -83,7 +85,7 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
     wave0, galaxy0, noise0 = read_voronoi_stack(infile)
     nbins = galaxy0.shape[0]
 
-    ispec = 0 # absorption dominated spectra
+    # ispec = 0 # absorption dominated spectra
 
     # Only use the wavelength range in common between galaxy and stellar library.
     mask = np.logical_and(wave0>wmin_fit, wave0<wmax_fit)
@@ -102,10 +104,10 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
     #-----------------------------------------------------------
 
     dv = (np.log(lamRange_temp[0])-np.log(wave[0]))*c.to('km/s').value # km/s
-    vel_init, sigma_init = 1400., 40.
+    # vel_init, sigma_init = 1400., 40.
 
     # goodPixels = util.determine_goodpixels(logLam_galaxy, lamRange_temp, vel/c)
-    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp, vel_init/c.to('km/s').value, dv_mask=200.)
+    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp, vel_init/c.to('km/s').value, dv_mask=dv_mask)
 
     def run_ppxf_multiprocess(bins_begin, bins_end):
 
@@ -119,6 +121,7 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
 
             pp = ppxf(stars_templates, galaxy, noise, velscale,
                       start=[vel_init, sigma_init],
+                      lam=np.exp(logLam_galaxy),
                       moments=4, degree=4, mdegree=4,
                       goodpixels=goodPixels, plot=False,
                       vsyst=dv, clean=True, quiet=False)
@@ -170,4 +173,5 @@ if __name__ == '__main__':
 
     ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir=npy_dir,
                                 temp_list=file_template_list,
+                                vel_init=1400., sigma_init=40., dv_mask=200.,
                                 wmin_fit=4800, wmax_fit=7000., n_thread=12)
