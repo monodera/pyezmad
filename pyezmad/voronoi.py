@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, os.path
+# import os.path
 import time
 import numpy as np
 from astropy.table import Table
