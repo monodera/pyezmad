@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# import os.path
+import os.path
 import time
 import numpy as np
 from astropy.table import Table
@@ -261,3 +261,97 @@ def stacking(fcube, ftable, fout):
     hdulist.writeto(fout, clobber=True)
 
     return()
+
+
+
+def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix, outfile):
+    """Subtract continuum defined as the best-fit of pPXF from the Voronoi binned spectra.
+       Here, 'simple' means that the Voronoi binning is identical for stellar continuum fitting
+       and parent binned spectra.
+
+    Args:
+        voronoi_binspec_file: input Voronoi binned stacked spectra (FITS file)
+        ppxf_npy_dir: name of a directory storing pPXF results (.npy files)
+        ppxf_npy_prefix: prefix of .npy files storing pPXF results
+        outfile: output file name (FITS file). The shape will be (nbins, nwave)
+
+    Returns: (wave, flux, var, header)
+        wave: wavelength array (nwave)
+        flux: continuum subtracted 2D array of Voronoi binned spectra (nbins, nwave)
+        var: 2D array of Voronoi binned variance (nbins, nwave)
+        header: a FITS header copied from the input file
+    """
+
+    wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
+
+    nbins = flux.shape[0]
+
+    flux_cont_sub = np.empty_like(flux) + np.nan
+    var_cont_sub = np.empty_like(var) + np.nan
+
+    for i in range(nbins):
+        pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix+'_%06i.npy' % i)
+        pp = np.load(pp_npy)[0]
+
+        best = np.interp(wave, pp.lam, pp.bestfit, left=np.nan, right=np.nan)
+
+        flux_cont_sub[i,:] = flux[i,:] - best
+        var_cont_sub[i,np.isfinite(best)] = var[i,np.isfinite(best)]
+
+    hdu = fits.open(voronoi_binspec_file)
+    hdu['FLUX'].data = flux_cont_sub
+    hdu['VAR'].data = var_cont_sub
+
+    hdu.writeto(outfile, clobber=True)
+
+    return(wave, flux_cont_sub, var_cont_sub,
+           fits.open(voronoi_binspec_file)['FLUX'].header)
+
+
+def create_kinematics_image(hdu_segimg, tb_vel, output_fits_name, is_save=True):
+    """Create kinematics map based on a table object.
+
+    Args:
+        hdu_segimg: hdu of segmentation image (must be opended by astropy.io.fits)
+        tb_vel: table containing information on kinematics.
+                It must contain ['vel', 'sig', 'errvel', 'errsig'] keys.
+        output_file_name: output file name (FITS file)
+        is_save: flag to save the resulting image into a multi-extension FITS image.
+
+    Returns: (velimg, errvelimg, sigimg, errsigimg)
+        velimg: velocity image
+        errvelimg: velocity error image
+        sigimg: sigma image
+        errsigimg: sigma error image
+        These images have the identical shape with the segmentation image.
+    """
+
+    segimg = hdu_segimg[0].data
+
+    velimg = create_value_image(segimg, tb_vel['vel'])
+    sigimg = create_value_image(segimg, tb_vel['sig'])
+    errvelimg = create_value_image(segimg, tb_vel['errvel'])
+    errsigimg = create_value_image(segimg, tb_vel['errsig'])
+
+    prihdu = fits.PrimaryHDU()
+    vel_hdu = fits.ImageHDU(data=velimg, name='VEL')
+    evel_hdu = fits.ImageHDU(data=errvelimg, name='ERRVEL')
+    sig_hdu = fits.ImageHDU(data=sigimg, name='SIG')
+    esig_hdu = fits.ImageHDU(data=errsigimg, name='ERRSIG')
+
+    refheader = hdu_segimg[0].header
+
+    for k in ['CRVAL3', 'CRPIX3', 'CDELT3', 'CTYPE3', 'CUNIT3']:
+        if k in refheader:
+            refheader.pop(k, None)
+
+    for hdu in [vel_hdu, evel_hdu, sig_hdu, esig_hdu]:
+        for k,v in refheader.items():
+            if k!='EXTNAME':
+                hdu.header[k] = v
+
+    hdulist = fits.HDUList([prihdu, vel_hdu, evel_hdu, sig_hdu, esig_hdu])
+    hdulist.writeto(output_fits_name, clobber=True)
+
+    return(velimg, errvelimg, sigimg, errsigimg)
+
