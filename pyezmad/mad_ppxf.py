@@ -6,18 +6,28 @@ import os, os.path
 
 import astropy.io.fits as fits
 from astropy.constants import c
-# from scipy import ndimage
+from scipy import ndimage
 import numpy as np
 
-from multiprocessing import Process # , Queue
+from multiprocessing import Process
 
 from ppxf import ppxf
 import ppxf_util as util
 
+from .voronoi import read_stacked_spectra
+
 def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
-    """
-    Generates a list of goodpixels to mask a given set of gas emission
-    lines. This is meant to be used as input for PPXF.
+    """Generates a list of goodpixels to mask a given set of gas emission lines.
+       This is meant to be used as input for PPXF.
+
+    Args:
+        logLam: logarithmically rebinned wavelength grid (Note: it's natural log)
+        LamRangeTemp:minimum and maximum wavelength of template spectra
+        z: redshift to be applied to properly mask the emission lines.
+        dv_mask: size of the mask in velocity space (km/s). +/-dv_mask will be masked.
+
+    Returns:
+        An array containing indices of valid pixels. 
 
     """
 #                     -----[OII]-----    Hdelta   Hgamma   Hbeta   -----[OIII]-----   [OI]    -----[NII]-----   Halpha   -----[SII]-----
@@ -37,7 +47,23 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
 
     return np.where(flag==0)[0]
 
-def setup_miles_spectral_library(file_template_list, velscale, FWHM_gal):
+def setup_spectral_library(file_template_list, velscale, FWHM_gal, FWHM_tem):
+    """Set-up spectral library
+
+    Args:
+        file_template_list: a file contains a list of template files.
+                            Now a template file is assumed to be a 1D FITS file
+                            containing flux at each pixel.  Wavelength inforamtion
+                            must be stored in the FITS header with (CRPIX1, CRVAL1, CDELT1).
+        velscale: velscale parameter derived from logRebin
+        FWHM_gal: spectral resolution of the instrument, FWHM in angstrom 
+        FWHM_tem: spectral resolution of the templates, FWHM in angstrom
+
+    Returns: (templates, lamRange_temp, logLam_temp)
+        templates: template array with a shape of (nwave, ntemplate)
+        lamRange_temp: wavelength range of templates
+        logLam_temp: natural logarithmically rebinned wavelength array for templates
+    """
 
     # file_template_list = 'miles_ssp_padova_all.list'
     template_list = np.genfromtxt(file_template_list, dtype=None)
@@ -52,13 +78,14 @@ def setup_miles_spectral_library(file_template_list, velscale, FWHM_gal):
 
     templates = np.empty((sspNew.size,template_list.size))
 
-    # FWHM_dif = np.sqrt(FWHM_gal**2 - FWHM_tem**2)
-    # sigma = FWHM_dif/2.355/h2['CDELT1'] # Sigma difference in pixels
+    FWHM_dif = np.sqrt(FWHM_gal**2 - FWHM_tem**2)
+    sigma = FWHM_dif/2.355/h2['CDELT1'] # Sigma difference in pixels
 
     for i in range(template_list.size):
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
-        # ssp = ndimage.gaussian_filter1d(ssp,sigma)
+        if sigma>0.:
+            ssp = ndimage.gaussian_filter1d(ssp,sigma)
         sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp, velscale=velscale)
         templates[:,i] = sspNew # Templates are *not* normalized here
 
@@ -66,23 +93,36 @@ def setup_miles_spectral_library(file_template_list, velscale, FWHM_gal):
 
 #------------------------------------------------------------------------------
 
-def read_voronoi_stack(infile):
-    hdu = fits.open(infile)
-    h_obj = hdu['FLUX'].header
-    # h_var = hdu['VAR'].header
-    wave = h_obj['CRVAL1'] + h_obj['CDELT1']*(np.arange(h_obj['NAXIS1'])-h_obj['CRPIX1']+1)
-    return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
 
-#------------------------------------------------------------------------------
+# def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
 
-def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
-                                vel_init=1000., sigma_init=50., dv_mask=200.,
-                                wmin_fit=4800, wmax_fit=7000., n_thread=12):
+def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=None,
+                                    vel_init=1000., sigma_init=50., dv_mask=200.,
+                                    wmin_fit=4800, wmax_fit=7000., n_thread=12,
+                                    FWHM_muse=2.51, FWHM_tem=2.51):
+    """Run pPXF for all Voronoi binned spectra formatted within this package scheme
+
+    Args:
+        infile: input file, voronoi binned spectra with a shape of (nbins,nwave)
+        npy_prefix: prefix for output .npy files (output will be `npy_prefx_<bin ID>.npy`
+        npy_dir: directory to store .npy files
+        temp_list: list of templates
+        vel_init: initial guess of line-of-sight velocity
+        sigma_init: initial guess of velocity dispersion
+        dv_mask: velocity width to be masked for emission lines
+        wmin_fit: minimum wavelength to be fit
+        wmax_fit: maximum wavelength ot be fit
+        n_thread: number of processes to be executed in parallel
+        FWHM_muse: instrumental resolution in angstrom
+        FWHM_temp: template resolution in angstrom
+    Returns: None
+        .npy files will be saved in npy_dir.  They will be used for post-processing.
+    """
 
     if not os.path.exists(npy_dir):
         os.mkdir(npy_dir)
 
-    wave0, galaxy0, noise0 = read_voronoi_stack(infile)
+    wave0, galaxy0, noise0 = read_stacked_spectra(infile)
     nbins = galaxy0.shape[0]
 
     # ispec = 0 # absorption dominated spectra
@@ -91,14 +131,14 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
     mask = np.logical_and(wave0>wmin_fit, wave0<wmax_fit)
     wave = wave0[mask]
     lamRange_galaxy = np.array([wave[0], wave[-1]])
-    FWHM_muse = 2.52 # MUSE instrumental resolution FWHM (to be confirmed)
+    # FWHM_muse = 2.52 # MUSE instrumental resolution FWHM (to be confirmed)
 
     # dummy operation to get logLam_galaxy and velscale
     galaxy, logLam_galaxy, velscale = util.log_rebin(lamRange_galaxy, galaxy0[0,mask])
 
     #------------------- Setup templates -----------------------
 
-    stars_templates, lamRange_temp, logLam_temp = setup_miles_spectral_library(temp_list, velscale, FWHM_muse)
+    stars_templates, lamRange_temp, logLam_temp = setup_spectral_library(temp_list, velscale, FWHM_muse, FWHM_tem)
     stars_templates /= np.median(stars_templates) # Normalizes stellar templates by a scalar
 
     #-----------------------------------------------------------
@@ -142,6 +182,7 @@ def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
         # print('Current Delta Chi^2: %.4g' % ((pp.chi2 - 1)*galaxy.size))
         # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
 
+
     ##
     ## parallelization
     ##
@@ -175,7 +216,7 @@ if __name__ == '__main__':
     npy_dir = 'pp_npy_out'
     file_template_list = 'miles_ssp_padova_all.list'
 
-    ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir=npy_dir,
+    run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir=npy_dir,
                                 temp_list=file_template_list,
                                 vel_init=1400., sigma_init=40., dv_mask=200.,
                                 wmin_fit=4800, wmax_fit=7000., n_thread=12)
