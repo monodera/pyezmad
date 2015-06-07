@@ -2,9 +2,21 @@ site_name: Python MAD Analysis Tools
 
 # http://www.mkdocs.org/user-guide/styling-your-docs/
 # theme: readthedocs
-theme: flatly
+# theme: flatly
+theme: cosmo
 
 # site_url: https://bitbucket.org/monodera/pyezmad
 repo_url: https://bitbucket.org/monodera/pyezmad
 repo_name: Bitbucket
 site_author: Masato Onodera
+
+
+pages:
+- Home: 'index.md'
+- Examples: 
+    - 'White-light image': 'examples/whitelightimage.md'
+    - 'Voronoi 2D binning': 'examples/voronoi_binning.md'
+    - 'Stacking of spectra': 'examples/spectral_stacking.md'
+    - 'pPXF': 'examples/ppxf.md'
+    - 'Emission line fitting': 'examples/emission_line_fitting.md'
+    - 'Narrow-band image': 'examples/narrowbandimage.md'

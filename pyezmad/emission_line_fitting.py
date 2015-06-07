@@ -11,7 +11,8 @@ import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 import lmfit
 
-from .ppxf_kinematics import read_voronoi_stack
+# from .ppxf_kinematics import read_voronoi_stack
+from .voronoi import read_stacked_spectra
 from .utilities import linelist
 
 def search_lines(hdu, line_list):
@@ -167,7 +168,7 @@ def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linel
        tbhdulist: HDUList object of output table. It's very messy format...
     """
 
-    wave, flux, var = read_voronoi_stack(voronoi_binspec_file)
+    wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
     tb_ppxf = Table.read(ppxf_output_file)
 
     res_fitting = np.empty(flux.shape[0], dtype=np.object)
