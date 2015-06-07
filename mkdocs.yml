@@ -1,0 +1,10 @@
+site_name: Python MAD Analysis Tools
+
+# http://www.mkdocs.org/user-guide/styling-your-docs/
+# theme: readthedocs
+theme: flatly
+
+# site_url: https://bitbucket.org/monodera/pyezmad
+repo_url: https://bitbucket.org/monodera/pyezmad
+repo_name: Bitbucket
+site_author: Masato Onodera
