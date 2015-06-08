@@ -1,4 +1,4 @@
-# Welcome to Python MAD Analysys Tools
+# Welcome to Python MAD Analysis Tools
 
 Python MAD Analysis Tools (`pyezmad`) is a tool intended 
 to help analyse MAD (MUSE Atlas for Disks) data 
