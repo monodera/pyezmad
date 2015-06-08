@@ -1,0 +1,14 @@
+# myself
+# .gitignore
+
+# buildable directories
+build/
+dist/
+pyezmad.egg-info/
+pyezmad/bak/
+site/
+
+# emacs backup files
+*~
+
+*.pyc
