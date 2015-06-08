@@ -121,11 +121,11 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
     maskimg[np.isfinite(maskimg)] = 1.
 
     if vel==None:
-        velmap = np.zeros_like(nbimg)
+        # velmap = np.zeros_like(nbimg)
         zz = 1.
         ww = wcenter * np.ones_like(nbimg)
     else:
-        zz = (1.+velmap*u.km/u.s/c.to('km/s'))
+        zz = (1.+vel*u.km/u.s/c.to('km/s'))
         ww = wcenter * zz
 
     if dw == None:

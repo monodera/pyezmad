@@ -70,4 +70,4 @@ aplpy.make_rgb_image(['ngc4980_nbimg_halpha.fits',
 (R, G, B) = (Halpha, I-band, V-band).
 
 
-![Color image](../images/test_ngc4980_colorimg.png)
+![Color image](../images/ngc4980_colorimg.png)
