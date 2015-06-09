@@ -23,6 +23,7 @@ I will add you as a member of the repository.
 * [Matplotlib](http://matplotlib.org)
 * [Astropy](http://astropy.org)
 * [lmfit](http://cars9.uchicago.edu/software/python/lmfit/)
+* [mpdaf CoreLib](http://urania1.univ-lyon1.fr/mpdaf/chrome/site/DocCoreLib/index.html)
 
 All of them can be installed with `pip`, e.g., `pip install numpy`.
 If you don't have a root permission on the computer you are working, 
