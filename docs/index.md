@@ -66,6 +66,6 @@ print(pyezmad.__version__)
 * The code is optimized for my data analysis at this momemnt, i.e. NGC 4980. Your suggestions and contributions are greatly appreciated!
 * Inconsistent naming scheme
 * Inconsistent input/output formats
-* Crappy documentation is crappy
+* Documentation is crappy
 * Crappy English in documentation
 * Still subject to be a major structural change
