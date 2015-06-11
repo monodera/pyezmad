@@ -144,7 +144,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
     #------------------- Setup templates -----------------------
 
     stars_templates, lamRange_temp, logLam_temp = setup_spectral_library(temp_list, velscale, FWHM_muse, FWHM_tem)
-    stars_templates /= np.median(stars_templates) # Normalizes stellar templates by a scalar
+    # stars_templates /= np.median(stars_templates) # Normalizes stellar templates by a scalar
 
     #-----------------------------------------------------------
 
