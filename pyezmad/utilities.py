@@ -115,7 +115,16 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
     """
 
     h = hducube[1].header
-    wcube = h['CRVAL3'] + h['CDELT3']*(np.arange(h['NAXIS3'])-h['CRPIX3']+1)
+
+    if 'CD3_3' in h:
+        cdelt3 = h['CD3_3']
+    elif 'CDELT3' in h:
+        cdelt3 = h['CDELT3']
+    else:
+        print("CD3_3 or CDELT3 not found in the header. Exit.")
+        sys.exit()
+
+    wcube = h['CRVAL3'] + cdelt3*(np.arange(h['NAXIS3'])-h['CRPIX3']+1)
     nbimg = np.empty((h['NAXIS2'],h['NAXIS1']))
     maskimg = np.nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
@@ -156,98 +165,44 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
 
 
 
+def create_narrowband_image_simple(hducube, wcenter, dw):
+    """Create a narrow band image
+
+    Args:
+        hducube: HDU object of astropy.io.fits for the input cube
+        wcenter: central wavelength in angstrom
+        dw: if specified, narrow-band image will be extracted wcenter+/-dw
+
+    Returns:
+        2D numpy array with a shape of (NAXIS2, NAXIS1)
+    """
+
+    h = hducube[1].header
+
+    if 'CD3_3' in h:
+        cdelt3 = h['CD3_3']
+    elif 'CDELT3' in h:
+        cdelt3 = h['CDELT3']
+    else:
+        print("CD3_3 or CDELT3 not found in the header. Exit.")
+        sys.exit()
+
+    wcube = h['CRVAL3'] + cdelt3*(np.arange(h['NAXIS3'])-h['CRPIX3']+1)
+    nbimg = np.empty((h['NAXIS2'],h['NAXIS1']))
+    maskimg = np.nanmax(hducube[1].data, axis=0)
+    maskimg[np.isfinite(maskimg)] = 1.
+
+    wmin, wmax = wcenter-dw, wcenter+dw
+
+    idx_wmin = search_nearest_index(wcube, wmin)
+    idx_wmax = search_nearest_index(wcube, wmax)
+    tmpspec = hducube[1].data[idx_wmin:idx_wmax+1, :, :]
+    nbimg = np.nansum(tmpspec, axis=0)
+
+    nbimg[np.isnan(maskimg)] = np.nan
+
+    return(nbimg)
+
 
 if __name__=='__main__':
     print('do nothing')
-    indir = '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/'
-    infile = os.path.join(indir, 'NGC4980/NGC4980_FINAL.fits')
-
-    # ha_img = make_narrowband_image(fits.open(infile),
-    #                                wcenter=6564.61,
-    #                                dw=None,
-    #                                velmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #                                sigmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 3))
-
-    # o3_img = make_narrowband_image(fits.open(infile),
-    #                                wcenter=5008.24,
-    #                                dw=None,
-    #                                velmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #                                sigmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 3))
-
-    # vband_img = make_narrowband_image(fits.open(infile),
-    #                                   wcenter=5400,
-    #                                   # dw=200.,
-    #                                   velmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #                                   sigmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 3))
-
-    # iband_img = make_narrowband_image(fits.open(infile),
-    #                                   wcenter=8000.,
-    #                                   # dw=200.,
-    #                                   velmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #                                   sigmap=fits.getdata('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 3))
-
-    # fits.writeto('test_ngc4980_nbimg_halpha.fits', ha_img,
-    #              fits.getheader('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #              clobber=True)
-    # fits.writeto('test_ngc4980_nbimg_o3.fits', o3_img,
-    #              fits.getheader('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #              clobber=True)
-
-    # fits.writeto('test_ngc4980_nbimg_vband.fits', vband_img,
-    #              fits.getheader('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #              clobber=True)
-
-    # fits.writeto('test_ngc4980_nbimg_iband.fits', iband_img,
-    #              fits.getheader('../emission_line_fitting/ngc4980_em_kinematics_img_sn50.fits', 1),
-    #              clobber=True)
-
-    # aplpy.make_rgb_image(['test_ngc4980_nbimg_halpha.fits',
-    #                       'test_ngc4980_nbimg_cont.fits',
-    #                       'test_ngc4980_nbimg_o3.fits'],
-    #                       'test_ngc4980_colorimg.png',
-    #                       stretch_r='arcsinh',
-    #                       stretch_g='arcsinh',
-    #                       stretch_b='arcsinh',
-    #                       # pmin_r=0.1, pmax_r=99.9,
-    #                       # pmin_g=0.1, pmax_g=99.9,
-    #                       # pmin_b=0.1, pmax_b=99.9,
-    #                       vmin_r=-10, vmax_r=8e3,
-    #                       vmin_g=-10, vmax_g=5e3,
-    #                       vmin_b=-10, vmax_b=1e4,
-    #                       make_nans_transparent=True)
-# INFO: Making alpha layer [aplpy.rgb]
-# INFO: Red: [aplpy.rgb]
-# INFO: vmin = -2.374e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  3.425e+04 (auto) [aplpy.rgb]
-# INFO: Green: [aplpy.rgb]f
-# INFO: vmin = -4.244e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  1.265e+03 (auto) [aplpy.rgb]
-# INFO: Blue: [aplpy.rgb]
-# INFO: vmin = -3.667e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  4.978e+04 (auto) [aplpy.rgb]
-
-    aplpy.make_rgb_image(['test_ngc4980_nbimg_halpha.fits',
-                          'test_ngc4980_nbimg_iband.fits',
-                          'test_ngc4980_nbimg_vband.fits'],
-                          'test_ngc4980_colorimg.png',
-                          stretch_r='arcsinh',
-                          stretch_g='arcsinh',
-                          stretch_b='arcsinh',
-                          # pmin_r=0.1, pmax_r=99.9,
-                          # pmin_g=0.1, pmax_g=99.9,
-                          # pmin_b=0.1, pmax_b=99.9,
-                          vmin_r=-5, vmax_r=2e4,
-                          vmin_g=-5, vmax_g=3e3,
-                          vmin_b=-5, vmax_b=3e3,
-                          make_nans_transparent=True)
-
-# INFO: Making alpha layer [aplpy.rgb]
-# INFO: Red: [aplpy.rgb]
-# INFO: vmin = -1.121e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  1.521e+04 (auto) [aplpy.rgb]
-# INFO: Green: [aplpy.rgb]
-# INFO: vmin = -2.441e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  1.139e+03 (auto) [aplpy.rgb]
-# INFO: Blue: [aplpy.rgb]
-# INFO: vmin = -2.138e+01 (auto) [aplpy.rgb]
-# INFO: vmax =  1.057e+03 (auto) [aplpy.rgb]
