@@ -64,8 +64,10 @@ print(pyezmad.__version__)
 ## Known issues (mainly excuses)
 
 * The code is optimized for my data analysis at this momemnt, i.e. NGC 4980. Your suggestions and contributions are greatly appreciated!
+* No error handling
 * Inconsistent naming scheme
 * Inconsistent input/output formats
 * Documentation is crappy
 * Crappy English in documentation
 * Still subject to be a major structural change
+
