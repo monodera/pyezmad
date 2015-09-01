@@ -73,6 +73,8 @@ you can make a Voronoi-segmented map of it as follows.
 In this case, note that array indexes corresponds to the bin IDs.
 
 ```python
+from pyezmad.voronoi import create_value_image
+
 npiximg = create_value_image(fits.getdata('ngc4980_voronoi_sn50_segimg.fits'), # segmentation map
                              fits.getdata(tb_bin_fits)['npix']) # values to be reconstructed
 fits.writeto(outprefix + '_npiximg.fits', npiximg, fits.getheader(refimg_fits))
