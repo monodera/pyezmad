@@ -5,9 +5,11 @@ One can stack spectra according to the Voronoi binning in the previous step.
 ```python
 from pyezmad.voronoi import stacking
 
-stacking('/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'  # input MUSE cube
+infile= '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'
+
+stacking( infile, # input MUSE cube
          'ngc4980_voronoi_xy2bin_sn50.fits',  # mapping information
-         'ngc4980_voronoi_stack_spec_sn50.fits' # output FITS file
+         'ngc4980_voronoi_stack_spec_sn50.fits') # output FITS file
 ```
 
 The output FITS file `ngc4980_voronoi_stack_spec_sn50.fits` 
