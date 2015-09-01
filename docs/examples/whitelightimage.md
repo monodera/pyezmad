@@ -11,7 +11,7 @@ from pyezmad.utilities import create_whitelight_image
 
 infile = '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'
 
-wimage = create_whitelight_image('ngc4980_whitelight_image',
+wimage = create_whitelight_image(infile, 'ngc4980_whitelight_image',
                                   wi_scale='asinh', wi_percent=99.5, wi_cmap=cm.Greys_r,
                                   is_plot=True)
 ```
