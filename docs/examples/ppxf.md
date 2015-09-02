@@ -136,7 +136,7 @@ in a multi-extension FITS file.
 ```python
 from pyezmad.voronoi import create_kinematics_image
 
-file_segimg = 'ngc4980_voronoi_sn50_binimg.fits'
+file_segimg = 'ngc4980_voronoi_sn50_segimg.fits'
 velimg, errvelimg, sigimg, errsigimg = \
     create_kinematics_image(fits.open(file_segimg),
                             tb_vel,
