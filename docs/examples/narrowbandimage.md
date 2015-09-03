@@ -24,7 +24,7 @@ o3_img = create_narrowband_image(fits.open(infile),
                                wcenter=5008.24,
                                dw=None,
                                vel=fits.getdata('ngc4980_em_kinematics_img_sn50.fits', 1),
-                               sig=fits.getdata('ngc4980_em_kinematics_img_sn50.fits', 3))
+                               vdisp=fits.getdata('ngc4980_em_kinematics_img_sn50.fits', 3))
 fits.writeto('ngc4980_nbimg_o3.fits', o3_img,
              fits.getheader('ngc4980_em_kinematics_img_sn50.fits', 1),
              clobber=True)
