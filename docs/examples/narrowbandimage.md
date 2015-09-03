@@ -8,6 +8,8 @@ from pyezmad.utilities import create_narrowband_image
 
 infile = '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'
 
+#Replace 'ngc4980_em_kinematics_img_sn50.fits' with 'ngc4980_ppxf_vel_sn50_img.fits' to be consisted with previous
+
 # make Halpha and [OIII]5007 narrow-band image
 ha_img = create_narrowband_image(fits.open(infile),
                                  wcenter=6564.61,
