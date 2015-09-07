@@ -47,6 +47,30 @@ linelist = {'OII3726'  : 3727.09,
 
 
 
+def get_wavelength(hdu, axis=None):
+
+    if axis==None:
+        print("need to specify axis (NAXISn)")
+        sys.exit()
+
+    h = hdu[1].header
+
+    if 'CD%i_%i' % (axis,axis) in h:
+        if h['CD%i_%i' % (axis,axis)]==1:
+            cdelt = h['CDELT%i' % axis]
+        else:
+            cdelt = h['CD%i_%i' % (axis,axis)]
+    elif 'CDELT%i' % axis in h:
+        cdelt = h['CDELT%i' % axis]
+    else:
+        print("CD%i_%i or CDELT%i not found in the header. Exit." % (axis,axis,axis))
+        sys.exit()
+
+    w = h['CRVAL%i' % axis] + cdelt*(np.arange(h['NAXIS%i' % axis])-h['CRPIX%i' % axis]+1)
+
+    return(w)
+
+
 def search_nearest_index(x, x0):
     return(np.argmin(np.abs(x-x0)))
 
