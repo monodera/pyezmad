@@ -251,11 +251,17 @@ def stacking(fcube, ftable, fout):
     for hdu in [data_hdu, var_hdu]:
         hdu.header['CRPIX1'] = cube.data_header['CRPIX3']
         hdu.header['CRVAL1'] = cube.data_header['CRVAL3']
-        hdu.header['CDELT1'] = cube.data_header['CDELT3']
+        if 'CDELT3' in cube.data_header:
+            hdu.header['CDELT1'] = cube.data_header['CDELT3']
+        elif 'CD3_3' in cube.data_header:
+            hdu.header['CDELT1'] = cube.data_header['CD3_3']
         hdu.header['CTYPE1'] = cube.data_header['CTYPE3']
         hdu.header['CUNIT1'] = cube.data_header['CUNIT3']
-        hdu.header['BUNIT'] = cube.data_header['BUNIT']
-        hdu.header['FSCALE'] = cube.data_header['FSCALE']
+
+        if 'BUNIT' in cube.data_header:
+            hdu.header['BUNIT'] = cube.data_header['BUNIT']
+        if 'FSCALE' in cube.data_header:
+            hdu.header['FSCALE'] = cube.data_header['FSCALE']
 
     hdulist = fits.HDUList([prihdu, data_hdu, var_hdu])
     hdulist.writeto(fout, clobber=True)

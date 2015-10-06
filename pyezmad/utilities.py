@@ -100,7 +100,7 @@ def create_whitelight_image(infile, prefix_out,
 
     hdu = fits.open(infile)
 
-    wi = np.sum(hdu[1].data, axis=0)
+    wi = np.nansum(hdu[1].data, axis=0)
 
     if is_save==True:
         fits.writeto(prefix_out+'.fits', wi, hdu[1].header, clobber=True)
@@ -158,10 +158,14 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
         zz = 1.
         ww = wcenter * np.ones_like(nbimg)
     else:
+        if type(vel) != np.ndarray:
+            vel = np.ones_like(nbimg) * vel
         zz = (1.+vel*u.km/u.s/c.to('km/s'))
         ww = wcenter * zz
 
     if dw == None:
+        if type(vdisp) != np.ndarray:
+            vdisp = np.ones_like(nbimg) * vdisp
         dwave = (vdisp*u.km/u.s) / c.to('km/s') * ww * nsig
     elif vdisp==None:
         dwave = dw * np.ones_like(nbimg)
