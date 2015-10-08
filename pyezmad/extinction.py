@@ -34,10 +34,18 @@ def extinction_f99(w):
 
     return(alam_ebv_f99)
 
+def extract_galactic_ebv(gal_name):
 
-def correct_mwdust_cube(hdu, ebv, debug=False):
+    tb_ebv = IrsaDust.get_query_table(gal_name, section='ebv')
+    ebv = tb_ebv['ext SandF mean'][0]
 
-    hdu_corr = hdu
+    return ebv
+
+def correct_mwdust_cube(infile, debug=False):
+
+    hdu_corr = fits.open(infile)
+    gal_name=hdu_corr[0].header['OBJECT']
+    ebv = extract_galactic_ebv(gal_name)
     w = get_wavelength(hdu, axis=3)
     alam_ebv = extinction_f99(w)
     extfac = np.power(10., 0.4*alam_ebv*ebv)
