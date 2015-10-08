@@ -232,5 +232,52 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     return(nbimg)
 
 
+
+def per_pixel_to_arcsec(pixscale=0.2):
+    """Convert area from sq. pixel to sq. arcsec.
+
+    Args:
+        pixscale: pixel scale in arcsec/pixel (default: 0.2)
+
+    Outputs:
+        Scalar to convert from per sq. pixel to per sq. arcsec.
+        For instance, one can convert flux f in erg/s/cm^2/A to in erg/s/cm^2/A/arcsec^2
+        by f*per_pixel_to_arcsec()**2
+    """
+    a = 1./pixscale
+    return(a)
+
+
+def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
+    """Convert area from sq. pixel to per physical area (kpc^2 or pc^2)
+
+    Args:
+        distance: a distance to the object in Mpc (astropy.unit instance is recommended)
+        scale: unit to be converted either per 'kpc' or 'pc'. (Other units will actually work)
+        pixscale: pixel scale in arcsec/pixel (default: 0.2)
+
+    Outputs:
+        Scalar to convert from per sq. pixel to per sq. physical angular size with the given unit.
+        For instance, one can convert flux f in erg/s/cm^2/A to in erg/s/cm^2/A/kpc^2
+        by f*per_pixel_to_physical(distance, scale='kpc')**2
+    """
+
+    try:
+        dummy = distance.unit.name
+    except AttributeError:
+        distance *= u.Mpc
+        print("Warning: Distance is forced to be in astropy.units.Mpc")
+
+    if scale == 'pc':
+        pixscale2physical = distance.to('pc') * (pixscale*u.arcsec).to('radian') / u.radian
+    elif scale == 'kpc':
+        pixscale2physical = distance.to('kpc') * (pixscale*u.arcsec).to('radian') / u.radian
+
+    return(1./pixscale2physical.value)
+
+
 if __name__=='__main__':
     print('do nothing')
+    print(per_pixel_to_arcsec())
+    print(per_pixel_to_physical(20.))
+    print(per_pixel_to_physical(20.*u.Mpc, scale='pc'))
