@@ -12,3 +12,7 @@ site/
 *~
 
 *.pyc
+
+mpdaf.log
+.omakedb*
+Omakefile.omc
