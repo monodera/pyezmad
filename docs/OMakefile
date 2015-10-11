@@ -1,0 +1,18 @@
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+PAPER         =
+BUILDDIR      = build
+
+# Internal variables.
+PAPEROPT_a4     = -D latex_paper_size=a4
+ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_a4) $(SPHINXOPTS) source
+
+SRCS = $(glob source/*.rst source/*/*.rst)
+PYSRCS = $(glob ../pyezmad/*.py)
+
+.DEFAULT: $(PYSRCS) $(SRCS) source/conf.py
+	make clean
+	sphinx-apidoc -f -e -o source ../pyezmad
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	make html
+	date

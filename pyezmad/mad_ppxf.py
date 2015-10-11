@@ -25,15 +25,21 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
     """Generates a list of goodpixels to mask a given set of gas emission lines.
        This is meant to be used as input for PPXF.
 
-    Args:
-        logLam: logarithmically rebinned wavelength grid (Note: it's natural log)
-        LamRangeTemp:minimum and maximum wavelength of template spectra
-        z: redshift to be applied to properly mask the emission lines.
-        dv_mask: size of the mask in velocity space (km/s). +/-dv_mask will be masked.
+    Parameters
+    ----------
+    logLam : ndarray
+        logarithmically rebinned wavelength grid (Note: it's natural log).
+    LamRangeTemp : array_like
+        Minimum and maximum wavelengths of template spectra.
+    z : float
+        Redshift to be applied to properly mask the emission lines.
+    dv_mask : float
+        Size of the mask in velocity space (km/s). ``v(z)+/-dv_mask`` will be masked.
 
-    Returns:
+    Returns
+    -------
+    ndarray
         An array containing indices of valid pixels. 
-
     """
 #                     -----[OII]-----    Hdelta   Hgamma   Hbeta   -----[OIII]-----   [OI]    -----[NII]-----   Halpha   -----[SII]-----
     # lines = np.array([3726.03, 3728.82, 4101.76, 4340.47, 4861.33, 4958.92, 5006.84, 6300.30, 6548.03, 6583.41, 6562.80, 6716.47, 6730.85])
@@ -50,24 +56,33 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
     flag |= np.exp(logLam) > lamRangeTemp[1]*(1 + z)*(1 - 900/c.to('km/s').value)   # Mask edges of
     flag |= np.exp(logLam) < lamRangeTemp[0]*(1 + z)*(1 + 900/c.to('km/s').value)   # stellar library
 
-    return np.where(flag==0)[0]
+    return(np.where(flag==0)[0])
 
 def setup_spectral_library(file_template_list, velscale, FWHM_gal, FWHM_tem):
     """Set-up spectral library
 
-    Args:
-        file_template_list: a file contains a list of template files.
-                            Now a template file is assumed to be a 1D FITS file
-                            containing flux at each pixel.  Wavelength inforamtion
-                            must be stored in the FITS header with (CRPIX1, CRVAL1, CDELT1).
-        velscale: velscale parameter derived from logRebin
-        FWHM_gal: spectral resolution of the instrument, FWHM in angstrom 
-        FWHM_tem: spectral resolution of the templates, FWHM in angstrom
+    Parameters
+    ----------
+    file_template_list : str
+        A file contains a list of template files.
+        Now each template file is assumed to be a 1D FITS file
+        containing flux at each pixel.  Wavelength inforamtion
+        must be stored in the FITS header with (CRPIX1, CRVAL1, CDELT1).
+    velscale : array_like
+        ``velscale`` parameter derived from ``logRebin``.
+    FWHM_gal : float
+        Instrumental spectral resolution, FWHM in angstrom.
+    FWHM_tem : float
+        Spectral resolution of the templates, FWHM in angstrom.
 
-    Returns: (templates, lamRange_temp, logLam_temp)
-        templates: template array with a shape of (nwave, ntemplate)
-        lamRange_temp: wavelength range of templates
-        logLam_temp: natural logarithmically rebinned wavelength array for templates
+    Returns
+    -------
+    templates : ndarray
+        template array with a shape of ``(nwave, ntemplate)``.
+    lamRange_temp : array_like
+        Wavelength range of templates.
+    logLam_temp : array_like
+        Natural logarithmically rebinned wavelength array for templates. 
     """
 
     # file_template_list = 'miles_ssp_padova_all.list'
@@ -105,23 +120,43 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
                                     vel_init=1000., sigma_init=50., dv_mask=200.,
                                     wmin_fit=4800, wmax_fit=7000., n_thread=12,
                                     FWHM_muse=2.51, FWHM_tem=2.51):
-    """Run pPXF for all Voronoi binned spectra formatted within this package scheme
+    """Run pPXF for all Voronoi binned spectra formatted as ``pyezmad.voronoi`` binned spectra.
 
-    Args:
-        infile: input file, voronoi binned spectra with a shape of (nbins,nwave)
-        npy_prefix: prefix for output .npy files (output will be `npy_prefx_<bin ID>.npy`
-        npy_dir: directory to store .npy files
-        temp_list: list of templates
-        vel_init: initial guess of line-of-sight velocity
-        sigma_init: initial guess of velocity dispersion
-        dv_mask: velocity width to be masked for emission lines
-        wmin_fit: minimum wavelength to be fit
-        wmax_fit: maximum wavelength ot be fit
-        n_thread: number of processes to be executed in parallel
-        FWHM_muse: instrumental resolution in angstrom
-        FWHM_temp: template resolution in angstrom
-    Returns: None
-        .npy files will be saved in npy_dir.  They will be used for post-processing.
+    This function runs pPXF in parallel for Voronoi-binned spectra.
+    It will save the results as ``pp`` object in a numpy binary form as ``.npy`` files in ``npy_dir``.
+    These output files will be post-processed in the further analysis.
+    It's a bit inconvenient, but at this moment, I'd like to keep as it is
+    because we don't really know what best-fit parameters can be used later
+    (and the shared memory functionality of Python's ``multiprocessing``
+    and the numpy array are not very friendly).
+
+    Parameters
+    ----------
+    infile : str
+        Input file, voronoi binned spectra with a shape of ``(nbins,nwave)``.
+    npy_prefix : str
+        Prefix for the output ``.npy`` files (output files will be ``npy_prefx_<bin ID>.npy``).
+    npy_dir : str
+        Directory to store the output ``.npy`` files.
+    temp_list : str
+        A file containing a list of template files.
+    vel_init : float
+        Initial guess for line-of-sight velocities.
+    sigma_init : float
+        Initial guess for line-of-sight  velocity dispersions.
+    dv_mask : float
+        Velocity width to be masked for emission lines. 
+    wmin_fit : float
+        Minimum wavelength to run pPXF.
+    wmax_fit : float
+        Maximum wavelength to run pPXF.
+    n_thread : int
+        Number of processes to be executed in parallel.
+    FWHM_muse : float
+        Instrumental resolution in angstrom in FWHM.
+    FWHM_temp : float
+        Template resolution in angstrom in FWHM.
+
     """
 
     if not os.path.exists(npy_dir):
@@ -214,20 +249,29 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
     print("Time Elapsed for pPXF run: %f [seconds]" % (t_end-t_start))
 
 def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
-    """Extract information of kinematics at each Voronoi bin
-       from pPXF output .npy files
+    """Extract information of kinematics at each Voronoi bin from pPXF output ``.npy`` files.
 
-    Args:
-        ppxf_npy_dir: directory where ppxf output .npy files are located.
-        ppxf_npy_prefix: file prefix for the .npy file from pPXF run
+    Parameters
+    ----------
+    ppxf_npy_dir : str
+        Directory where pPXF's output ``.npy`` files are located.
+    ppxf_npy_prefix : str
+        File prefix for the ``.npy`` file from the pPXF run.
 
-    Returns: (table, binid, vel, sig, errvel, errsig)
-        table: astropy.table.Table object containing (bin ID, velocity, sigma, velocity error, sigma error)
-        binid: Voronoi bin ID
-        vel: best velocity solution
-        sig: best sigma solution
-        errvel: formal velocity error corrected to redced-chi2=1
-        errsig: formal sig error corrected to redced-chi2=1
+    Returns
+    -------
+    table : astropy.table.Table
+        Table object containing ``(bin ID, velocity, sigma, velocity error, sigma error)``.
+    binid : ndarray
+        Voronoi bin ID.
+    vel : ndarray
+        Best velocity (km/s) solution.
+    sig : ndarray
+        Best sigma (km/s) solution.
+    errvel : ndarray
+        Formal error in velocity (km/s) corrected to :math:`\\chi^2_\\nu=1`.
+    errsig : ndarray
+        Formal error in velocity dispersion (km/s) corrected to :math:`\\chi^2_\\nu=1`.
     """
 
     ibin = 0
@@ -261,16 +305,19 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
 
 
 def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
-    """Quick-look at the output from pPXF run
+    """Quick-look at the output from pPXF run.
 
-    Args:
-        ibin: bin ID
-        voronoi_binspec_file: input FITS file containing Voronoi binned spectra
-        ppxf_npy_dir: a directory where .npy files are stored.
-        ppxf_npy_prefix: a file prefix for .npy output
+    Parameters
+    ----------
+    ibin : int
+        Voronoi bin ID.
+    voronoi_binspec_file : str
+        Input FITS file containing Voronoi binned spectra.
+    ppxf_npy_dir : str
+        Directory where ``.npy`` files are stored.
+    ppxf_npy_prefix : str
+        File prefix for ``.npy`` files.
 
-    Returns:
-        None
     """
 
     pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix+'_%06i.npy' % ibin)

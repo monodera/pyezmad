@@ -47,13 +47,32 @@ linelist = {'OII3726'  : 3727.09,
 
 
 
-def get_wavelength(hdu, axis=None):
+def get_wavelength(hdu, ext=1, axis=None):
+    """Create a wavelength array from an input Astropy HDU object.
+
+    Parameters
+    ----------
+    hdu : astropy.io.fits.HDUList
+        HDUList object.
+    axis : int
+        Index of axis in which the wavelength coordinate is stored
+        (3 for a standard MUSE cube).
+    ext : int or string, optional
+        Index of the extention from which wavelength info will be extracted
+        (1 or 'DATA' or 2 or 'STAT' is a standard for a MUSE cube; Defalt 1).
+
+    Returns
+    -------
+    wavelength : ndarray
+        Wavelength array reconstructed from the header information.
+
+    """
 
     if axis==None:
         print("need to specify axis (NAXISn)")
         sys.exit()
 
-    h = hdu[1].header
+    h = hdu[ext].header
 
     if 'CD%i_%i' % (axis,axis) in h:
         if h['CD%i_%i' % (axis,axis)]==1:
@@ -63,7 +82,7 @@ def get_wavelength(hdu, axis=None):
     elif 'CDELT%i' % axis in h:
         cdelt = h['CDELT%i' % axis]
     else:
-        print("CD%i_%i or CDELT%i not found in the header. Exit." % (axis,axis,axis))
+        print("Neither CD%i_%i nor CDELT%i found in the header. Exit." % (axis,axis,axis))
         sys.exit()
 
     w = h['CRVAL%i' % axis] + cdelt*(np.arange(h['NAXIS%i' % axis])-h['CRPIX%i' % axis]+1)
@@ -72,38 +91,77 @@ def get_wavelength(hdu, axis=None):
 
 
 def search_nearest_index(x, x0):
+    """Search nearest index to the input value.
+
+    Parameters
+    ----------
+    x : array_like
+        An array to be searched.
+    x0 : float
+        A value for which the nearest index will be searched.
+
+    Returns
+    -------
+    index : int
+       Index value for which (x-x0) is minimized.
+    """
     return(np.argmin(np.abs(x-x0)))
+
 
 def create_whitelight_image(infile, prefix_out,
                             is_save=True, is_plot=True,
                             wi_scale='linear', wi_percent=99.,
-                            wi_cmap=cm.Greys_r):
+                            wi_cmap=cm.Greys_r,
+                            w_begin=4750., w_end=9350., ext=1):
     """Create MUSE white light image and save it to FITS file if specified.
 
     Simple white light image is produced for the input MUSE cube.  
     Some keywords for plotting is accepted.
 
-    Args:
-        infile: An input MUSE cube
-        prefix_out: prefix for the output FITS file and PDF image if requested.
-        wi_scale: Scaling function for plotting
-                  (see astropy.visualization.scale_image(); default: linear)
-        wi_percent: Percentile for clipping for plotting
-                  (see astropy.visualization.scale_image(); default: 99)
-        wi_cmap: Colormap for plotting (default: cm.Greys_r)
-        is_plot: Flag if plot is required (default: True)
-        is_save: Flag if white light image will be saved to a FITS file (default: True)
+    Parameters
+    ----------
+    infile : str
+        An input MUSE cube. 
+    prefix_out : str
+        A prefix for the output FITS file and PDF image if requested.
+    is_plot : bool, optional
+        Make a plot of the white light image if True.  The default is `True`.
+        The plot will be saved as prefix_out.pdf.
+    is_save : bool, optional
+        Save the white light image as a FITS file. The default is `True`.
+        The name of the FITS file will be prefix_out.pdf.
+    wi_scale: {'linear', 'sqrt', 'power', 'log', 'asinh'}, optional
+        Scaling function for plotting.
+        See ``astropy.visualization.scale_image``. The default is ``linear``.
+    wi_percent: int or float, optional
+        Percentile for clipping for plotting. 
+        See ``astropy.visualization.scale_image``. The default is ``99``.
+    wi_cmap: matplotlib colormap object, optional
+        Colormap for plotting. The default is `matplotlib.cm.Greys_r`.
+    w_begin: int or float, optional
+        Starting wavelength of white light image in angstrom. The default is 4750.
+    w_end: int or float, optional
+        End wavelength of white light image in angstrom. The default is 9350.
+    ext: int or str, optional
+        FITS Extention where the data is stored. The default is 1.
 
-    Returns:
-        A 2D numpy array of white image with a dimension of (NAXIS2, NAXIS1)
+    Returns
+    -------
+    image : ndarray
+        A white light image with a shape of (NAXIS2, NAXIS1).
     """
 
     hdu = fits.open(infile)
 
-    wi = np.nansum(hdu[1].data, axis=0)
+    w = get_wavelength(hdu, axis=3)
+
+    iw_begin = search_nearest_index(w, w_begin)
+    iw_end = search_nearest_index(w, w_end)
+
+    wi = np.nansum(hdu[ext].data[iw_begin:iw_end,:,:], axis=0)
 
     if is_save==True:
-        fits.writeto(prefix_out+'.fits', wi, hdu[1].header, clobber=True)
+        fits.writeto(prefix_out+'.fits', wi, hdu[ext].header, clobber=True)
 
     if is_plot==True:
         wi_cmap.set_bad('white')
@@ -122,33 +180,35 @@ def create_whitelight_image(infile, prefix_out,
 
 
 def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsig=3.):
-    """Create a narrow band image
+    """Create a narrow band image.  Possibiilty to input velocity structures. 
 
-    Args:
-        hducube: HDU object of astropy.io.fits for the input cube
-        wcenter: central wavelength in angstrom
-        dw: if specified, narrow-band image will be extracted wcenter+/-dw
-        vel: input velocity (either scaler or 2D map with a same spatial dimension with the input cube)
-                If specfied, wcenter is considered as the rest-frame wavelength and
-                will be shited accordingly to the observed frame for the extraction.
-        vdisp: velocity dispersion in km/s (either scalar or 2D map like velmap).
-        nsig: narrow-band extract is carried out out to nsig times the velocity dispersion.
+    Parameters
+    ----------
+    hducube : HDU object
+        Input HDU object.
+    wcenter : float or int
+        Central wavelength in angstrom.
+    dw : float or int, optional
+        If specified, narrow-band image will be extracted ``wcenter+/-dw``.
+    vel : float, int, or array_like
+        Input velocity in km/s
+        (either scaler or 2D array with the same spatial dimension as that of the input cube).
+        If specfied, wcenter is considered as the rest-frame wavelength and
+        will be shited accordingly to the observed frame for the extraction.
+    vdisp : float, int, or array_like
+        Velocity dispersion in km/s (either scalar or 2D map like velmap).
+    nsig : int or float
+        Narrow-band extraction is carried out to ``nsig`` times the velocity dispersion.
 
-    Returns:
-        2D numpy array with a shape of (NAXIS2, NAXIS1)
+    Returns
+    -------
+    image : ndarray
+        Narrow-band image with a shape of (NAXIS2, NAXIS1).
     """
 
     h = hducube[1].header
 
-    if 'CD3_3' in h:
-        cdelt3 = h['CD3_3']
-    elif 'CDELT3' in h:
-        cdelt3 = h['CDELT3']
-    else:
-        print("CD3_3 or CDELT3 not found in the header. Exit.")
-        sys.exit()
-
-    wcube = h['CRVAL3'] + cdelt3*(np.arange(h['NAXIS3'])-h['CRPIX3']+1)
+    wcube = get_wavelength(hducube, axis=3)
     nbimg = np.empty((h['NAXIS2'],h['NAXIS1']))
     maskimg = np.nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
@@ -176,8 +236,7 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
 
     wmin, wmax = ww-dwave, ww+dwave
 
-    # FIXME: stupid looping is slow. There must be more efficient way.
-    #        Need to calm down and relax to think about it!
+    # FIXME: Looping is very slow in Python. There must be more efficient way.
     for ix in xrange(h['NAXIS1']):
         for iy in xrange(h['NAXIS2']):
             if np.isnan(maskimg[iy,ix])==True:
@@ -194,28 +253,28 @@ def create_narrowband_image(hducube, wcenter, dw=None, vel=None, vdisp=None, nsi
 
 
 def create_narrowband_image_simple(hducube, wcenter, dw):
-    """Create a narrow band image
+    """Create a narrow band image in a simple way. 
 
-    Args:
-        hducube: HDU object of astropy.io.fits for the input cube
-        wcenter: central wavelength in angstrom
-        dw: if specified, narrow-band image will be extracted wcenter+/-dw
+    Parameters
+    ----------
+    hducube : HDU object
+        Input HDU object for a cube.
+    wcenter : float or int
+        Central wavelength in angstrom.
+    dw :
+        Extraction width in angstrom.
+        Narrow-band image will be extracted for ``wcenter+/-dw``.
 
-    Returns:
-        2D numpy array with a shape of (NAXIS2, NAXIS1)
+    Returns
+    -------
+    image : ndarray
+        Narrow-band image with a shape of (NAXIS2, NAXIS1).
     """
 
     h = hducube[1].header
 
-    if 'CD3_3' in h:
-        cdelt3 = h['CD3_3']
-    elif 'CDELT3' in h:
-        cdelt3 = h['CDELT3']
-    else:
-        print("CD3_3 or CDELT3 not found in the header. Exit.")
-        sys.exit()
+    wcube = get_wavelength(hducube, axis=3)
 
-    wcube = h['CRVAL3'] + cdelt3*(np.arange(h['NAXIS3'])-h['CRPIX3']+1)
     nbimg = np.empty((h['NAXIS2'],h['NAXIS1']))
     maskimg = np.nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
@@ -234,32 +293,45 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
 
 
 def per_pixel_to_arcsec(pixscale=0.2):
-    """Convert area from sq. pixel to sq. arcsec.
+    """A factor to convert from per pixel to per arcsec.
 
-    Args:
-        pixscale: pixel scale in arcsec/pixel (default: 0.2)
+    Parameters
+    ----------
+    pixscale : float, optional
+        Pixel scale in arcsec/pixel. The default is 0.2.
 
-    Outputs:
+    Returns
+    -------
+    float :
         Scalar to convert from per sq. pixel to per sq. arcsec.
-        For instance, one can convert flux f in erg/s/cm^2/A to in erg/s/cm^2/A/arcsec^2
-        by f*per_pixel_to_arcsec()**2
+        For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix`
+        to in :math:`erg/s/cm^2/A/arcsec^2`
+        by ``f * per_pixel_to_arcsec()**2``.
     """
     a = 1./pixscale
     return(a)
 
 
 def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
-    """Convert area from sq. pixel to per physical area (kpc^2 or pc^2)
+    """A factor to convert from per pixel to per physical length (kpc or pc).
 
-    Args:
-        distance: a distance to the object in Mpc (astropy.unit instance is recommended)
-        scale: unit to be converted either per 'kpc' or 'pc'. (Other units will actually work)
-        pixscale: pixel scale in arcsec/pixel (default: 0.2)
+    Parameters
+    ----------
+    distance : float
+        a distance to the object in Mpc (astropy.unit instance is recommended)
+    scale : {'kpc', 'pc'}, optional
+        Unit to be converted either per 'kpc' or 'pc' (Other units may work).
+        The default is 'kpc'.
+    pixscale: float
+        Pixel scale in arcsec/pixel The default is 0.2.
 
-    Outputs:
-        Scalar to convert from per sq. pixel to per sq. physical angular size with the given unit.
-        For instance, one can convert flux f in erg/s/cm^2/A to in erg/s/cm^2/A/kpc^2
-        by f*per_pixel_to_physical(distance, scale='kpc')**2
+    Returns
+    -------
+    float :
+        Scalar to convert from per pixel to per physical angular size with the given unit.
+        For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix^2` to
+        in :math:`erg/s/cm^2/A/kpc^2`
+        by ``f * per_pixel_to_physical(distance, scale='kpc')**2``.
     """
 
     try:

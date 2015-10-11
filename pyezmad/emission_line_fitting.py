@@ -16,25 +16,48 @@ from .voronoi import read_stacked_spectra
 from .utilities import linelist
 
 def search_lines(hdu, line_list):
-    """Search extension ID and keys for the input list.
+    """Search the extension ID and keys for the input list.
 
-    Args:
-        hdu: HDUList object of FITS file output from the emission_line_fitting function
-        line_list: list of emission line to be searched
+    Parameters
+    ----------
+    hdu : HDUList
+        HDUList object of FITS file output from the emission_line_fitting function
+    line_list : list
+        A list containing names of spectral features (emission lines) to be searched from the master list.
 
-    Returns:
-        extname: a python dictionary containing information which extension of
-                the input hdu each emission line can be found.
-        keyname: In the extension, which key one has to use to access the wavelength stored in the header.
+    Returns
+    -------
+    extname : dict
+        A python dictionary containing information which extension of
+        the input hdu each emission line can be found.
+    keyname : dict
+        A python dictionary containing information about which key one has to use
+        to access the wavelength stored in the header.
 
-    Note:
-        If you linelist is  ['Hbeta', 'OIII5007', 'Halpha', 'NII6583'], it will return
-            extname={'NII6583': 'GROUP1', 'OIII5007': 'GROUP0', 'Hbeta': 'GROUP0', 'Halpha': 'GROUP1'}
-            keyname={'NII6583': 'LINE1', 'OIII5007': 'LINE2', 'Hbeta': 'LINE0', 'Halpha': 'LINE2'}
-        Then, one can access, for example the flux of [OIII]5007 by
-            flux = hdu[extname['OIII5007']].data['f_OIII5007']
-        It's messy, so any suggestions to improve the accessiblitiy are welcome.
+    Examples
+    --------
+
+    Here is an example. ::
+
+        >>> from pyezmad.emission_line_fitting import search_lines
+        >>> import astropy.io.fits as fits
+        >>> hdu = fits.open('ngc4980_voronoi_out_emprop_sn50.fits')
+        >>> line_list = ['Hbeta', 'OIII5007', 'Halpha', 'NII6583']
+        >>> extname, keyname = search_lines(hdu, line_list)
+        >>> print(extname)
+        {'NII6583': 'GROUP1', 'OIII5007': 'GROUP0', 'Hbeta': 'GROUP0', 'Halpha': 'GROUP1'}
+
+        >>> print(keyname)
+        {'NII6583': 'LINE1', 'OIII5007': 'LINE2', 'Hbeta': 'LINE0', 'Halpha': 'LINE2'}
+
+        >>> print(hdu[extname['OIII5007']].data['f_OIII5007'])
+        [ 344.87768249  252.25565277  268.18625201 ...,   29.67768105   17.77837443
+        134.66131437]
+
+
+    The format is a bit messy, so any suggestions are welcome!
     """
+
     extname = {}
     keyname = {}
 
@@ -62,12 +85,75 @@ def search_lines(hdu, line_list):
 
 
 def gaussian(x, flux, vel, sig, lam):
+    """Gaussian function.
+
+    Parameters
+    ----------
+    x : array_like
+        Wavelength vector.
+    flux : float or int
+        Total flux.
+    vel : float or int
+        Line-of-sight velocity in km/s.
+    sig : float or int
+        Line-of-sight velocity dispersion in km/s.
+    lam : float or int
+        Rest-frame wavelength in angstrom.
+
+    Returns
+    -------
+    gaussian : array_like
+        Gaussian function for a given parameter set.
+
+    Notes
+    -----
+
+    .. math::
+
+        G(x, f, v, \\sigma_v, \\lambda_\\text{in}) =
+        \\frac{f}{\\sqrt{2\pi} \\sigma_\\lambda} \\exp\\left(-\\frac{(x-\\lambda_c)^2}{2\\sigma_\\lambda}\\right)
+
+        \\lambda_c = \\lambda_\\text{in} \\left( 1 + \\frac{v}{c} \\right)
+
+        \\sigma_\\lambda = \\lambda_c \\frac{\\sigma_v}{c}
+
+    """
+
     lcen = lam * (1. + vel/c.to('km/s').value)
     lsig = lcen * sig / c.to('km/s').value
     return(flux/np.sqrt(2.*np.pi)/lsig * np.exp(-(x-lcen)**2/lsig**2))
 
 
 def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_checkeach=False):
+    """Fit Gaussian(s) to a single spectrum.
+
+    Parameters
+    ----------
+    wave : array_like
+        Wavelength array.
+    flux : array_like
+        Flux array.
+    var : array_like
+        Variance array.
+    vel_star : float
+        Velocity of stellar component in km/s.  This will be used as an initial guess.
+    linelist_name : list
+        A list containing names of emission lines fit simultaneously.
+    dwfit : float, optional
+        Fitting will be done +/-dwfit angstrom from line cneter (in rest-frame).
+        The default is 100.
+    is_checkeach : bool, optional
+        If `True`, a plot showing the observed and best-fit spectra wiil be shown.
+        The default is `False`.
+
+    Returns
+    -------
+    outfitting : ndarray
+        ndarray of dictionaries containing fitting results.
+        Each dictionary contains
+        {'flux', 'eflux', 'vel', 'sig', 'evel', 'esig', 'cont_a', 'cont_b', 'cont_c', 'chi2'}.
+
+    """
 
     out_fitting = np.empty(len(linelist_name), dtype=np.object)
 
@@ -154,18 +240,29 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_che
 
 def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linelist_name, is_checkeach=False):
     """Fit emission lines to (continuum-subtracted) spectra with Voronoi output format.
-    Args:
-        voronoi_binspec_file: Input FITS file formatted as Voronoi binned stack, i.e., (nbins, nwave).
-                              This supposed to be continuum subtracted, but may work for continuum
-                              non-subtracted spectra. 
-        ppxf_output_file: File name of FITS binary table which stores pPXF outputs (use velocity as an initial guess).
-        outfile: Output file name (FITS file)
-        linelist_name: List of emission lines to be fit.
-                       When grouped with square brackets, they will be fit simultaneously by assuming
-                       identical line-of-sight velocity and gaussian sigma.
 
-    Returns:
-       tbhdulist: HDUList object of output table. It's very messy format...
+    Parameters
+    ----------
+    voronoi_binspec_file : str
+        Input FITS file with a shape of Voronoi binned stacked spectra, i.e., (nbins, nwave).
+        This supposed to be continuum subtracted, but may work for continuum
+        non-subtracted spectra. 
+    ppxf_output_file : str
+        File name of FITS binary table which stores pPXF outputs
+        (use stellar line-of-sight velocity as an initial guess).
+        Stellar line-of-sight velocity should be stored with the key 'vel'.
+    outfile : str
+        Output file name (FITS file)
+    linelist_name : list
+        List of emission lines to be fit.
+        When grouped with square brackets, they will be fit simultaneously by assuming
+        identical line-of-sight velocity and velocity dispersion.
+
+    Returns
+    -------
+    tbhdulist: HDUList object
+        Output table as aHDUList object. It's very messy format...
+        Each HDU contains the fitting result for each emission line group.
     """
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
@@ -186,9 +283,11 @@ def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linel
         for k in range(len(linelist_name[j])):
             lname = linelist_name[j][k]
             col_val = fits.Column(name='f_'+lname, format='D',
-                                  array=np.array([res_fitting[i][j]['flux'][lname] for i in xrange(flux.shape[0])]))
+                                  array=np.array([res_fitting[i][j]['flux'][lname]
+                                                  for i in xrange(flux.shape[0])]))
             col_err = fits.Column(name='ef_'+lname, format='D',
-                                  array=np.array([res_fitting[i][j]['eflux'][lname] for i in xrange(flux.shape[0])]))
+                                  array=np.array([res_fitting[i][j]['eflux'][lname]
+                                                  for i in xrange(flux.shape[0])]))
             cols.append(col_val)
             cols.append(col_err)
 
