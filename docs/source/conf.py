@@ -22,7 +22,7 @@ import sphinx_bootstrap_theme
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../../'))
 
 # -- General configuration ------------------------------------------------
 
@@ -36,6 +36,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -363,4 +365,14 @@ texinfo_documents = [
 
 
 
+# -- Options for MathJax
 
+# mathjax_path = 'http://mathjax.connectmv.com/MathJax.js?config=default'
+mathjax_path = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
+
+# -- Options for Intersphinx mapping
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/2.7', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'astropy': ('http://docs.astropy.org/en/stable', None)
+}

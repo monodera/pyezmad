@@ -31,16 +31,15 @@ Examples
    :maxdepth: 2
 
    examples
-   ..
-      examples/index
-      examples/whitelightimage
-      examples/voronoi_binning
-      examples/ppxf
-      examples/emission_line_fitting
-      examples/spectral_stacking
-      examples/narrowbandimage
 
+Modules
+-------
 
+.. toctree::
+   :maxdepth: 2
+
+   pyezmad
+..   modules
 
 
 
@@ -50,22 +49,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-..
-   theme: cosmo
-
-   # site_url: https://bitbucket.org/monodera/pyezmad
-   repo_url: https://bitbucket.org/monodera/pyezmad
-   repo_name: Bitbucket
-   site_author: Masato Onodera
-
-
-   pages:
-   - Home: 'index.md'
-   - Examples:
-       - 'White-light image': 'examples/whitelightimage.md'
-       - 'Voronoi 2D binning': 'examples/voronoi_binning.md'
-       - 'Stacking of spectra': 'examples/spectral_stacking.md'
-       - 'pPXF': 'examples/ppxf.md'
-       - 'Emission line fitting': 'examples/emission_line_fitting.md'
-       - 'Narrow-band image': 'examples/narrowbandimage.md'

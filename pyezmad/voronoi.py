@@ -8,20 +8,30 @@ import astropy.io.fits as fits
 from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
 
+from .utilities import get_wavelength
+
 def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
-    """Make arrays needed for Voronoi binning routine by Cappellari & Coppin 
+    """Make arrays needed for Voronoi binning routine by Cappellari & Coppin.
 
-    Args:
-        infile: input MUSE cube file (FITS format)
-        wave_center: central wavelenth in angstrom to compute signal and noise
-        dwave: signal and noise are computed within +/- dwave (unit: angstrom) from wave_center
+    Parameters
+    ----------
+    infile : str
+        Input MUSE cube file (a standard MUSE cube format).
+    wave_center : float
+        Central wavelenth in angstrom to compute signal and noise. 
+    dwave : float
+        Signal and noise are computed within ``wave_center+/-dwave``. 
 
-    Returns: (x, y, signal, noise, snmap)
-        x     : x pixel coordinates of the input cube (size NAXIS1*NAXIS2)
-        y     : y pixel coordinates of the input cube (size NAXIS1*NAXIS2)
-        signal: signal per angstrom at each pixel (size NAXIS1*NAXIS2) 
-        noise : 1sigma noise per angstrom at each pixel (size NAXIS1*NAXIS2) 
-        snmap : pixel-by-pixel S/N map
+    Returns
+    -------
+    x, y : :py:class:`numpy.ndarray`
+        Pixel coordinates of the input cube (shape of NAXIS1*NAXIS2).
+    signal : :py:class:`numpy.ndarray`
+        Signal per angstrom at each pixel (shape of NAXIS1*NAXIS2).
+    noise : :py:class:`numpy.ndarray`
+        1 sigma noise per angstrom at each pixel (shape of NAXIS1*NAXIS2).
+    snmap : :py:class:`numpy.ndarray`
+        Pixel-by-pixel S/N map. The shape of the map is ``(NAIX2, NAXIS1)``.
     """
 
     # read MUSE cube with MPDAF
@@ -51,19 +61,30 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 
 def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_sn=50.):
-    """All-in-one function to run Voronoi 2D binning
+    """All-in-one function to run Voronoi 2D binning.
 
-    Args:
-        infile: input MUSE cube
-        outprefix: prefix for the outputs
-        wave_center: central wavelength to compute signal and noise for Voronoi binning
-        dwave: signal and noise are computed +/- dwave from wave_center
-        target_sn: target S/N for Voronoi binning
+    Parameters
+    ----------
+    infile : str
+        Input MUSE cube.
+    outprefix : str
+        Prefix for the outputs.
+    wave_center : float, optional
+        Central wavelength to compute signal and noise for Voronoi binning.
+        The default is 5750 angstrom.
+    dwave : float, optional
+        Signal and noise are computed ``+/-dwave`` from ``wave_center``.
+        The default is 25 angstrom.
+    target_sn : float, optional
+        Target S/N per pixel for Voronoi binning. The default is 50.
 
-    Returns:
-        file_xy2bin: a FITS file storing infomation of (x, y, bin ID)
-        file_bininfo: a FITS file stroing information in each bin, including
-                      (bin, xnode, ynode, xcen, ycen, sn, npix, scale)
+    Returns
+    -------
+    file_xy2bin : str
+        A FITS file storing infomation of ``(x, y, bin ID)``.
+    file_bininfo : str
+        A FITS file stroing information in each bin, including
+        ``(bin, xnode, ynode, xcen, ycen, sn, npix, scale)``.
     """
 
     #
@@ -116,16 +137,19 @@ def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_s
 
 
 def create_segmentation_image(tb_xy_fits, refimg_fits):
-    """Create a segmentation image based on the output from `run_voronoi_binning`
+    """Create a segmentation image based on the output from :py:meth:`run_voronoi_binning`.
 
-    Args:
-        tb_xy_fits: FITS output table from run_voronoi_binning
-        refimg_fits: FITS image for the reference
-                     (white light image is expected at the moment)
+    Parameters
+    ----------
+    tb_xy_fits : str
+        FITS output table from run_voronoi_binning
+    refimg_fits : str
+        Reference FITS image (white-light image is just fine).
 
-    Returns:
-        binimg: a 2D numpy array with the same shape as `refimg_fits`
-                storing bin ID at each pixel.
+    Returns
+    -------
+    binimg : :py:class:`numpy.ndarray`
+        A 2D numpy array with the same shape as the reference image storing Voronoi bin ID at each pixel.
     """
 
     tb_xy = Table.read(tb_xy_fits)
@@ -152,17 +176,22 @@ def create_segmentation_image(tb_xy_fits, refimg_fits):
 
 
 def create_value_image(segmentation_image, value):
-    """Create an 2D Voronoi segmented image filled with a given value at each Voronoi bin
+    """Create an 2D Voronoi segmented image filled with given values at each Voronoi bin. 
 
-    Args:
-        segmentation_image: 2D numpy array of Voronoi segmentation map
-                            (output from `create_segmentation_image`)
-        value: a numpy array of value to be reconstructed as an output image.
-               The length must be identical to the number of bins.
+    Parameters
+    ----------
+    segmentation_image : :py:class:`numpy.ndarray`
+        A 2D numpy array of Voronoi segmentation map
+        (i.e., output from :py:meth:`create_segmentation_image`).
+    value : array_like
+        A numpy array of values to be reconstructed as an output image.
+        The length of the array must be identical to the number of bins.
 
-    Returns:
-        valimg: a 2D numpy array with the same shape as `refimg_fits`
-                storing value at each Voronoi bin.
+    Returns
+    -------
+    valimg : :py:class:`numpy.ndarray`
+        A 2D numpy array with the same shape as the segmentation image
+        storing ``value`` at each Voronoi bin.
     """
 
     valimg = np.empty(segmentation_image.shape) + np.nan
@@ -177,31 +206,47 @@ def create_value_image(segmentation_image, value):
 def read_stacked_spectra(infile):
     """Read Voronoi binned spectra into array.
 
-    Args:
-        infile: input FITS file to be stored. Should have a shape of (nbin, nwave).
+    Parameters
+    ----------
+    infile : str
+        Input FITS file to be processed. It must have a shape of ``(nbin, nwave)``.
 
-    Returns: (wave, data, noise)
-        wave: wavelenth array with a length of NAXIS1
-        data: stacked spectra with a shape of (NAXIS2, NAXIS1) or (nbin, nwave)
-        noise: noise spectra with a shape of (NAXIS2, NAXIS1) or (nbin, nwave)
+    Returns
+    -------
+    wave : :py:class:`numpy.ndarray`
+        Wavelenth array with a length of ``NAXIS1``.
+    data : :py:class:`numpy.ndarray`
+        Stacked spectra with a shape of ``(NAXIS2, NAXIS1) = (nbin, nwave)``.
+    noise: :py:class:`numpy.ndarray`
+        Noise spectra with a shape of ``(NAXIS2, NAXIS1) = (nbin, nwave)``.
     """
 
     hdu = fits.open(infile)
-    h_obj = hdu['FLUX'].header
+    # h_obj = hdu['FLUX'].header
     # h_var = hdu['VAR'].header
-    wave = h_obj['CRVAL1'] + h_obj['CDELT1']*(np.arange(h_obj['NAXIS1'])-h_obj['CRPIX1']+1)
+    # wave = h_obj['CRVAL1'] + h_obj['CDELT1']*(np.arange(h_obj['NAXIS1'])-h_obj['CRPIX1']+1)
+    wave = get_wavelength(hdu, ext='FLUX', axis=1)
     return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
 
+
+
 def stacking(fcube, ftable, fout):
-    """Stack spectra based on Voronoi binning
+    """Stack spectra from a cube based on Voronoi binning.
 
-    Args:
-        fcube: FITS file of MUSE cube
-        ftable: 'xy2bin' FITS file created by the binning process
-        fout: Output FITS file
+    The spectra is stacked by averaging pixels in a bin.
+    So, the resulting spectra have an unit of :math:`10^{-20} erg/s/cm^2/A/pixel^2`.
 
-    Returns:
-        None
+    Parameters
+    ----------
+    fcube : str
+        FITS file of MUSE cube.
+    ftable : str
+        ``xy2bin`` FITS file created by the Voronoi binning process. 
+    fout : str
+        Output FITS file. The output FITS file has a format of ``(NAXIS2, NAXIS2) = (nbin, nwave)``
+        for 1st and 2nd extentions. The stacked spectra and corresponding noise are
+        stored in the 1st (``FLUX``) and 2nd (``VAR``) extensions, repectively. 
+
     """
 
     tb_xy2bin = Table.read(ftable)
@@ -275,17 +320,27 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_
        Here, 'simple' means that the Voronoi binning is identical for stellar continuum fitting
        and parent binned spectra.
 
-    Args:
-        voronoi_binspec_file: input Voronoi binned stacked spectra (FITS file)
-        ppxf_npy_dir: name of a directory storing pPXF results (.npy files)
-        ppxf_npy_prefix: prefix of .npy files storing pPXF results
-        outfile: output file name (FITS file). The shape will be (nbins, nwave)
+    Parameters
+    ----------
+    voronoi_binspec_file : str
+        Input file of Voronoi binned stacked spectra (FITS format).
+    ppxf_npy_dir : str
+        Name of a directory storing pPXF results (i.e., ``.npy`` files).
+    ppxf_npy_prefix : str
+        Prefix of the ``.npy`` files.
+    outfile : str
+        Output file name (FITS format). The shape will be ``(nbins, nwave)``.
 
-    Returns: (wave, flux, var, header)
-        wave: wavelength array (nwave)
-        flux: continuum subtracted 2D array of Voronoi binned spectra (nbins, nwave)
-        var: 2D array of Voronoi binned variance (nbins, nwave)
-        header: a FITS header copied from the input file
+    Returns
+    -------
+    wave : array_like
+        Wavelength.
+    flux : :py:class:`numpy.ndarray`
+        Continuum subtracted 2D array of Voronoi binned spectra with a shape of ``(nbins, nwave)``.
+    var : :py:class:`numpy.ndarray`
+        2D array of Voronoi binned variance with a shape of ``(nbins, nwave)``.
+    header : :py:class:`astropy.io.fits.Header`
+        FITS header object copied from the input file.
     """
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
@@ -317,19 +372,32 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_
 def create_kinematics_image(hdu_segimg, tb_vel, output_fits_name, is_save=True):
     """Create kinematics map based on a table object.
 
-    Args:
-        hdu_segimg: hdu of segmentation image (must be opended by astropy.io.fits)
-        tb_vel: table containing information on kinematics.
-                It must contain ['vel', 'sig', 'errvel', 'errsig'] keys.
-        output_file_name: output file name (FITS file)
-        is_save: flag to save the resulting image into a multi-extension FITS image.
+    Parameters
+    ----------
+    hdu_segimg : :py:class:`astropy.io.fits.HDUList`
+        HDUList of the segmentation image.
+    tb_vel : :py:class:`astropy.table.Table`
+        Table object containing information on kinematics.
+        The table must contain ``vel``, ``sig``, ``errvel``, and ``errsig`` keys.
+    output_file_name : str
+        Output file name (FITS format).
+    is_save : bool
+        Flag to save the resulting image into a multi-extension FITS image.
+        Extension 1, 2, 3, and 4 correspond to velocity, velocity error,
+        velocity dispersion, and velocity dispersion error, respectively.
 
-    Returns: (velimg, errvelimg, sigimg, errsigimg)
-        velimg: velocity image
-        errvelimg: velocity error image
-        sigimg: sigma image
-        errsigimg: sigma error image
-        These images have the identical shape with the segmentation image.
+    Returns
+    -------
+    velimg : :py:class:`numpy.ndarray`
+        Velocity image.
+    errvelimg : :py:class:`numpy.ndarray`
+        Velocity error image.
+    sigimg : :py:class:`numpy.ndarray`
+        Velocity dispersion image.
+    errsigimg : :py:class:`numpy.ndarray`
+        Velocity dispersion error image.
+
+    These images have the identical shape to the input segmentation image.
     """
 
     segimg = hdu_segimg[0].data

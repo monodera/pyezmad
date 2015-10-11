@@ -20,6 +20,7 @@ Install
 * `SciPy <http://scipy.org>`_
 * `Matplotlib <http://matplotlib.org>`_
 * `Astropy <http://astropy.org>`_
+* `Astroquery <http://astroquery.readthedocs.org/en/latest/>`_
 * `lmfit <http://cars9.uchicago.edu/software/python/lmfit/>`_
 * `mpdaf CoreLib <http://urania1.univ-lyon1.fr/mpdaf/chrome/site/DocCoreLib/index.html>`_
 

@@ -9,7 +9,7 @@ axis) can be made as follows.
     import os, os.path
     import matplotlib.cm as cm
 
-    from pyezmad.utilities import create_whitelight_image
+    from pyezmad.utilities import :py:meth:`create_whitelight_image`
 
     infile = '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'
 
