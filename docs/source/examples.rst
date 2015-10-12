@@ -7,7 +7,6 @@ MUSE data cube of NGC 4980.
 .. toctree::
    :maxdepth: 2
 
-..   examples/index
    examples/whitelightimage
    examples/voronoi_binning
    examples/ppxf
