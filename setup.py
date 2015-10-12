@@ -10,6 +10,7 @@ setup(name='pyezmad',
       author_email='monodera@phys.ethz.ch',
       # license='BSD',
       packages=['pyezmad'],
+      package_data = {'pyezmad': ['database/emission_lines.dat']},
       zip_safe=False,
 
       #install_requires=['numpy', 'scipy', 'matplotlib', 'astropy', 'lmfit']
