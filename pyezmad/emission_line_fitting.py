@@ -13,7 +13,8 @@ import lmfit
 
 # from .ppxf_kinematics import read_voronoi_stack
 from .voronoi import read_stacked_spectra
-from .utilities import linelist
+# from .utilities import linelist
+from .utilities import read_emission_linelist
 
 def search_lines(hdu, line_list):
     """Search the extension ID and keys for the input list.
@@ -124,7 +125,7 @@ def gaussian(x, flux, vel, sig, lam):
     return(flux/np.sqrt(2.*np.pi)/lsig * np.exp(-(x-lcen)**2/lsig**2))
 
 
-def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_checkeach=False):
+def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_checkeach=False, linelist=None):
     """Fit Gaussian(s) to a single spectrum.
 
     Parameters
@@ -238,7 +239,8 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_che
 
     return(out_fitting)
 
-def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linelist_name, is_checkeach=False):
+def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linelist_name, is_checkeach=False,
+                          linelist = read_emission_linelist()):
     """Fit emission lines to (continuum-subtracted) spectra with Voronoi output format.
 
     Parameters
@@ -274,7 +276,7 @@ def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linel
     # It can be parallelized here.
     for i in xrange(flux.shape[0]):
         res_fitting[i] = fit_single_spec(wave, flux[i,:], var[i,:], tb_ppxf['vel'][i],
-                                         linelist_name, is_checkeach=is_checkeach)
+                                         linelist_name, is_checkeach=is_checkeach, linelist=linelist)
 
     prihdu = fits.PrimaryHDU()
     hdu_arr = []
