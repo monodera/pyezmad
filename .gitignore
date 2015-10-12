@@ -16,3 +16,5 @@ site/
 mpdaf.log
 .omakedb*
 Omakefile.omc
+Omakeroot
+Omakeroot.omc
