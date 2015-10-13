@@ -58,6 +58,7 @@ follows.
                                     FWHM_muse=2.51, FWHM_tem=2.51)
 
 Here is a short descriptions for the input parameters.
+See :py:`meth:pyezmad.mad_ppxf.run_voronoi_stacked_spectra_all` for a detail.
 
 -  ``infile`` - input Voronoi binned spectra made in the previous step
 -  ``npy_prefix`` - pPXF result will be saved as a Numpy binary file
@@ -79,6 +80,14 @@ Here is a short descriptions for the input parameters.
 -  ``FWHM_muse`` - MUSE spectral resolution in angstrom (this must be
    implemented more accurately) 8 ``FWHM_tem`` - spectral resolution of
    templates in angstrom
+-  ``ppxf_kwargs`` - Additional pPXF options.
+-  ``linelist`` - List of emission line names to be masked.
+-  ``is_mask_telluric`` - Flag if telluric bands (A, B, and gamma) are masked or not.
+
+
+You can also pass pPXF keywords if you want to set non-default values by
+specifying, e.g, ``ppxf_kwargs=dict(quiet=False, moments=6, mdegree=0)``. 
+
 
 Check the result
 ----------------
