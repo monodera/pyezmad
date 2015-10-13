@@ -162,7 +162,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     vel_init=1000., sigma_init=50.,
                                     dv_mask=200.,
                                     wmin_fit=4800, wmax_fit=7000., n_thread=12,
-                                    FWHM_muse=2.51, FWHM_tem=2.51):
+                                    FWHM_muse=2.51, FWHM_tem=2.51,
+                                    ppxf_kwargs=None, linelist=None,
+                                    is_mask_telluric=True):
     """Run pPXF for all Voronoi binned spectra formatted as
     ``pyezmad.voronoi`` binned spectra.
 
@@ -186,23 +188,29 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         Directory to store the output ``.npy`` files.
     temp_list : str
         A file containing a list of template files.
-    vel_init : float
+    vel_init : floatm, optional
         Initial guess for line-of-sight velocities.
-    sigma_init : float
+    sigma_init : float, optional
         Initial guess for line-of-sight  velocity dispersions.
-    dv_mask : float
+    dv_mask : float, optional
         Velocity width to be masked for emission lines.
-    wmin_fit : float
+    wmin_fit : float, optional
         Minimum wavelength to run pPXF.
-    wmax_fit : float
+    wmax_fit : float, optional
         Maximum wavelength to run pPXF.
-    n_thread : int
+    n_thread : int, optional
         Number of processes to be executed in parallel.
-    FWHM_muse : float
+    FWHM_muse : float, optional
         Instrumental resolution in angstrom in FWHM.
-    FWHM_temp : float
+    FWHM_temp : float, optional
         Template resolution in angstrom in FWHM.
-
+    ppxf_kwargs : dict, optional
+        Additional pPXF options.
+    linelist : list
+        List of emission line names to be masked,
+        e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
+    is_mask_telluric : bool
+        Flag to determine whether to mask telluric absorption band or not.
     """
 
     if not os.path.exists(npy_dir):
@@ -236,8 +244,17 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     # vel_init, sigma_init = 1400., 40.
 
     # goodPixels = util.determine_goodpixels(logLam_galaxy, lamRange_temp, vel/c)
-    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp, vel_init/c.to('km/s').value,
-                                      dv_mask=dv_mask, linelist=None, is_mask_telluric=True)
+    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp,
+                                      vel_init / c.to('km/s').value,
+                                      dv_mask=dv_mask,
+                                      linelist=linelist, is_mask_telluric=is_mask_telluric)
+
+    ppxf_keydic = dict(moments=4, degree=4, mdegree=4,
+                       plot=False, clean=True, quiet=False)
+
+    for k, v in ppxf_kwargs.items():
+        ppxf_keydic[k] = v
+
 
     def run_ppxf_multiprocess(bins_begin, bins_end):
 
@@ -254,15 +271,19 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
             pp = ppxf(stars_templates, galaxy, noise, velscale,
                       start=[vel_init, sigma_init],
                       lam=np.exp(logLam_galaxy),
-                      moments=4, degree=4, mdegree=4,
-                      goodpixels=goodPixels, plot=False,
-                      vsyst=dv, clean=True, quiet=False)
+                      goodpixels=goodPixels, vsyst=dv,
+                      **ppxf_keydic)
+
+            # moments=4, degree=4, mdegree=4,
+            # goodpixels=goodPixels, plot=False,
+            # vsyst=dv, clean=True, quiet=False)
 
             pp.star = None
             pp.star_rfft = None
             pp.matrix = None
 
-            np.save(os.path.join(npy_dir, npy_prefix+'_%06i.npy' % (ibin)), np.array([pp], dtype=np.object))
+            np.save(os.path.join(npy_dir, npy_prefix+'_%06i.npy' % (ibin)),
+                    np.array([pp], dtype=np.object))
 
         # print("Formal errors:")
         # print("     dV    dsigma   dh3      dh4")
