@@ -2,7 +2,8 @@
 from __future__ import print_function
 
 import time
-import os, os.path
+import os
+import os.path
 import sys
 
 import astropy.io.fits as fits
@@ -19,7 +20,7 @@ from ppxf import ppxf
 import ppxf_util as util
 
 from .voronoi import read_stacked_spectra
-from .utilities import read_emission_linelist
+from .utilities import get_wavelength, read_emission_linelist
 
 
 def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
@@ -38,6 +39,14 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
     dv_mask : float
         Size of the mask in velocity space (km/s).
         ``v(z)+/-dv_mask`` will be masked.
+    linelist : list
+        List of emission line names as defined in
+        ``database/emission_lines.dat`` in the repository.
+        The default set is ["Hbeta", "OIII4959", "OIII5007",
+        "NaI5890", "NaI5896", "OI6300", "NII6548", "NII6583",
+        "Halpha", "SII6716", "SII6731"].
+    is_mask_telluric : bool
+        Mask telluric absorption bands (A, B, and gamma).
 
     Returns
     -------
@@ -123,37 +132,43 @@ def setup_spectral_library(file_template_list, velscale, FWHM_gal, FWHM_tem):
     hdu = fits.open(template_list[0])
     ssp = hdu[0].data
     h2 = hdu[0].header
-    lamRange_temp = h2['CRVAL1'] + np.array([0.,h2['CDELT1']*(h2['NAXIS1']-1)])
-    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp, ssp, velscale=velscale)
+    wtempl = get_wavelength(hdu, ext=0, axis=1)
+    lamRange_temp = np.array([wtempl[0], wtempl[-1]])
+    # lamRange_temp = h2['CRVAL1'] + np.array([0., h2['CDELT1'] * (h2['NAXIS1'] - 1)])
+    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp, ssp,
+                                                   velscale=velscale)
 
-    templates = np.empty((sspNew.size,template_list.size))
+    templates = np.empty((sspNew.size, template_list.size))
 
     FWHM_dif = np.sqrt(FWHM_gal**2 - FWHM_tem**2)
-    sigma = FWHM_dif/2.355/h2['CDELT1'] # Sigma difference in pixels
+    sigma = FWHM_dif / 2.355 / h2['CDELT1']  # Sigma difference in pixels
 
     for i in range(template_list.size):
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
-        if sigma>0.:
-            ssp = ndimage.gaussian_filter1d(ssp,sigma)
-        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp, velscale=velscale)
-        templates[:,i] = sspNew # Templates are *not* normalized here
+        if sigma > 0.:
+            ssp = ndimage.gaussian_filter1d(ssp, sigma)
+        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp,
+                                                   velscale=velscale)
+        templates[:, i] = sspNew  # Templates are *not* normalized here
 
     return templates, lamRange_temp, logLam_temp
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
-# def ppxf_muse_voronoi_stack_all(infile, npy_prefix, npy_dir='.', temp_list=None,
-
-def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=None,
-                                    vel_init=1000., sigma_init=50., dv_mask=200.,
+def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
+                                    temp_list=None,
+                                    vel_init=1000., sigma_init=50.,
+                                    dv_mask=200.,
                                     wmin_fit=4800, wmax_fit=7000., n_thread=12,
                                     FWHM_muse=2.51, FWHM_tem=2.51):
-    """Run pPXF for all Voronoi binned spectra formatted as ``pyezmad.voronoi`` binned spectra.
+    """Run pPXF for all Voronoi binned spectra formatted as
+    ``pyezmad.voronoi`` binned spectra.
 
     This function runs pPXF in parallel for Voronoi-binned spectra.
-    It will save the results as ``pp`` object in a numpy binary form as ``.npy`` files in ``npy_dir``.
+    It will save the results as ``pp`` object in a numpy binary form
+    as ``.npy`` files in ``npy_dir``.
     These output files will be post-processed in the further analysis.
     It's a bit inconvenient, but at this moment, I'd like to keep as it is
     because we don't really know what best-fit parameters can be used later
@@ -165,7 +180,8 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
     infile : str
         Input file, voronoi binned spectra with a shape of ``(nbins,nwave)``.
     npy_prefix : str
-        Prefix for the output ``.npy`` files (output files will be ``npy_prefx_<bin ID>.npy``).
+        Prefix for the output ``.npy`` files
+        (output files will be ``npy_prefx_<bin ID>.npy``).
     npy_dir : str
         Directory to store the output ``.npy`` files.
     temp_list : str
@@ -197,33 +213,39 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
 
     # ispec = 0 # absorption dominated spectra
 
-    # Only use the wavelength range in common between galaxy and stellar library.
-    mask = np.logical_and(wave0>wmin_fit, wave0<wmax_fit)
+    # Only use the lambda range in common between galaxy and stellar library.
+    mask = np.logical_and(wave0 > wmin_fit, wave0 < wmax_fit)
     wave = wave0[mask]
     lamRange_galaxy = np.array([wave[0], wave[-1]])
     # FWHM_muse = 2.52 # MUSE instrumental resolution FWHM (to be confirmed)
 
     # dummy operation to get logLam_galaxy and velscale
-    galaxy, logLam_galaxy, velscale = util.log_rebin(lamRange_galaxy, galaxy0[0,mask])
+    galaxy, logLam_galaxy, velscale \
+        = util.log_rebin(lamRange_galaxy, galaxy0[0, mask])
 
-    #------------------- Setup templates -----------------------
+    # ------------------- Setup templates -----------------------
 
-    stars_templates, lamRange_temp, logLam_temp = setup_spectral_library(temp_list, velscale, FWHM_muse, FWHM_tem)
-    # stars_templates /= np.median(stars_templates) # Normalizes stellar templates by a scalar
+    stars_templates, lamRange_temp, logLam_temp \
+        = setup_spectral_library(temp_list, velscale, FWHM_muse, FWHM_tem)
+    # stars_templates /= np.median(stars_templates)
+    # Normalizes stellar templates by a scalar
 
-    #-----------------------------------------------------------
+    # -----------------------------------------------------------
 
-    dv = (np.log(lamRange_temp[0])-np.log(wave[0]))*c.to('km/s').value # km/s
+    dv = (np.log(lamRange_temp[0]) - np.log(wave[0])) * c.to('km/s').value
     # vel_init, sigma_init = 1400., 40.
 
     # goodPixels = util.determine_goodpixels(logLam_galaxy, lamRange_temp, vel/c)
-    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp, vel_init/c.to('km/s').value, dv_mask=dv_mask)
+    goodPixels = determine_goodpixels(logLam_galaxy, lamRange_temp, vel_init/c.to('km/s').value,
+                                      dv_mask=dv_mask, linelist=None, is_mask_telluric=True)
 
     def run_ppxf_multiprocess(bins_begin, bins_end):
 
         for ibin in np.arange(bins_begin, bins_end):
-            if (ibin-bins_begin+1)%10==0:
-                print("%f %% finished [%i:%i] " % ((ibin-bins_begin)*1./((bins_end-bins_begin)*1.)*100., bins_begin, bins_end))
+            if (ibin - bins_begin + 1) % 10 == 0:
+                print("%f %% finished [%i:%i] " % ((ibin - bins_begin) * 1. /
+                                                   ((bins_end - bins_begin) * 1.) * 100.,
+                                                   bins_begin, bins_end))
 
             galaxy, logLam_galaxy, velscale = util.log_rebin(lamRange_galaxy, galaxy0[ibin,mask])
             noise2, logLam_galaxy, velscale = util.log_rebin(lamRange_galaxy, noise0[ibin,mask]**2)
@@ -253,18 +275,20 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
         # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
 
 
-    ##
-    ## parallelization
-    ##
+    #
+    # parallelization
+    #
     # n_thread = 12
-    nobj_per_proc = nbins/n_thread
+    nobj_per_proc = nbins / n_thread
     ispec_start, ispec_end = 0, nbins
     bins_begin = np.arange(ispec_start, ispec_end, nobj_per_proc)
     bins_end = bins_begin + nobj_per_proc
     bins_end[-1] = ispec_end
     print(bins_begin, bins_end)
 
-    processes = [Process(target=run_ppxf_multiprocess, args=(bins_begin[i], bins_end[i])) for i in range(bins_begin.size)]
+    processes = [Process(target=run_ppxf_multiprocess,
+                         args=(bins_begin[i], bins_end[i]))
+                 for i in range(bins_begin.size)]
 
     t_start = time.time()
 
@@ -276,10 +300,12 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
 
     t_end = time.time()
 
-    print("Time Elapsed for pPXF run: %f [seconds]" % (t_end-t_start))
+    print("Time Elapsed for pPXF run: %f [seconds]" % (t_end - t_start))
+
 
 def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
-    """Extract information of kinematics at each Voronoi bin from pPXF output ``.npy`` files.
+    """Extract information of kinematics at each Voronoi bin
+    from pPXF output ``.npy`` files.
 
     Parameters
     ----------
@@ -310,13 +336,14 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
     sig, errsig = [], []
 
     while True:
-        pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix+'_%06i.npy' % ibin)
-        if os.path.exists(pp_npy) == True:
+        pp_npy = os.path.join(ppxf_npy_dir,
+                              ppxf_npy_prefix + '_%06i.npy' % ibin)
+        if os.path.exists(pp_npy) is True:
             pp = np.load(pp_npy)[0]
             vel.append(pp.sol[0])
             sig.append(pp.sol[1])
-            errvel.append(pp.error[0]*np.sqrt(pp.chi2))
-            errsig.append(pp.error[1]*np.sqrt(pp.chi2))
+            errvel.append(pp.error[0] * np.sqrt(pp.chi2))
+            errsig.append(pp.error[1] * np.sqrt(pp.chi2))
         else:
             break
         ibin += 1
@@ -326,7 +353,7 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
     tb_out = Table([np.arange(nbin),
                     np.array(vel), np.array(errvel),
                     np.array(sig), np.array(errsig)],
-                    names=['bin', 'vel', 'errvel', 'sig', 'errsig'])
+                   names=['bin', 'vel', 'errvel', 'sig', 'errsig'])
 
     return(tb_out,
            np.arange(nbin),
@@ -350,7 +377,9 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
 
     """
 
-    pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix+'_%06i.npy' % ibin)
+    pp_npy = os.path.join(ppxf_npy_dir,
+                          ppxf_npy_prefix + '_%06i.npy' % ibin)
+
     try:
         pp = np.load(pp_npy)[0]
     except IOError:
@@ -379,7 +408,7 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
     is_goodpixels[pp.goodpixels] = True
 
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot(1, 1, 1)
     ax.plot(pp.lam, pp.galaxy, '-', color='k')
     ax.plot(pp.lam, pp.bestfit, '-', color='tomato', lw=2, alpha=0.7)
     # ax.plot(pp.lam, residual, '-', color='k')
@@ -397,14 +426,14 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
     favg = np.nanmedian(pp.galaxy)
 
     ax.set_xlim(pp.lam[0], pp.lam[-1])
-    ax.set_ylim(-0.1*favg, 1.5*favg)
+    ax.set_ylim(-0.1 * favg, 1.5 * favg)
     ax.set_xlabel('Wavelength [angstrom]')
     ax.set_ylabel('Flux')
 
     # plt.show()
 
 
-#------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 if __name__ == '__main__':
     infile = '../stacking/ngc4980_voronoi_stack_spec_sn100.fits'
@@ -413,6 +442,6 @@ if __name__ == '__main__':
     file_template_list = 'miles_ssp_padova_all.list'
 
     run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir=npy_dir,
-                                temp_list=file_template_list,
-                                vel_init=1400., sigma_init=40., dv_mask=200.,
-                                wmin_fit=4800, wmax_fit=7000., n_thread=12)
+                                    temp_list=file_template_list,
+                                    vel_init=1400., sigma_init=40., dv_mask=200.,
+                                    wmin_fit=4800, wmax_fit=7000., n_thread=12)
