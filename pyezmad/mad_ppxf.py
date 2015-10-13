@@ -18,10 +18,12 @@ import matplotlib.pyplot as plt
 from ppxf import ppxf
 import ppxf_util as util
 
-
 from .voronoi import read_stacked_spectra
+from .utilities import read_emission_linelist
 
-def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
+
+def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
+                         linelist=None, is_mask_telluric=True):
     """Generates a list of goodpixels to mask a given set of gas emission lines.
        This is meant to be used as input for PPXF.
 
@@ -34,29 +36,57 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.):
     z : float
         Redshift to be applied to properly mask the emission lines.
     dv_mask : float
-        Size of the mask in velocity space (km/s). ``v(z)+/-dv_mask`` will be masked.
+        Size of the mask in velocity space (km/s).
+        ``v(z)+/-dv_mask`` will be masked.
 
     Returns
     -------
     ndarray
-        An array containing indices of valid pixels. 
+        An array containing indices of valid pixels.
     """
-#                     -----[OII]-----    Hdelta   Hgamma   Hbeta   -----[OIII]-----   [OI]    -----[NII]-----   Halpha   -----[SII]-----
-    # lines = np.array([3726.03, 3728.82, 4101.76, 4340.47, 4861.33, 4958.92, 5006.84, 6300.30, 6548.03, 6583.41, 6562.80, 6716.47, 6730.85])
-    #                 Hbeta    -----[OIII]-----  ------ Na I ------  [OI]     -----[NII]-----   Halpha   -----[SII]-----
-    lines = np.array([4862.69, 4960.30, 5008.24, 5891.583, 5897.558, 6302.04, 6548.03, 6583.41, 6562.80, 6716.47, 6730.85])
 
-    dv = np.ones(lines.size)*dv_mask # width/2 of masked gas emission region in km/s
+    if linelist is None:
+        # set a default linelist
+        lines = np.array([4862.69,   # Hbeta
+                          4960.30,   # [OIII]
+                          5008.24,   # [OIII]
+                          5891.583,  # Na I
+                          5897.558,  # Na I
+                          6302.04,   # [OI]
+                          6548.03,   # [NII]
+                          6583.41,   # [NII]
+                          6562.80,   # Halpha
+                          6716.47,   # [SII]
+                          6730.85])  # [SII]
+    else:
+        emission_lines = read_emission_linelist()
+        lines = np.array([emission_lines[lname] for lname in linelist])
+
+    # width/2 of masked gas emission region in km/s
+    dv = np.ones(lines.size) * dv_mask
 
     flag = logLam < 0  # empy mask
     for j in range(lines.size):
-        flag |= (np.exp(logLam) > lines[j]*(1 + z)*(1 - dv[j]/c.to('km/s').value)) \
-              & (np.exp(logLam) < lines[j]*(1 + z)*(1 + dv[j]/c.to('km/s').value))
+        flag |= (np.exp(logLam) >
+                 lines[j] * (1 + z) * (1 - dv[j] / c.to('km/s').value)) & \
+                (np.exp(logLam) <
+                 lines[j] * (1 + z) * (1 + dv[j] / c.to('km/s').value))
 
-    flag |= np.exp(logLam) > lamRangeTemp[1]*(1 + z)*(1 - 900/c.to('km/s').value)   # Mask edges of
-    flag |= np.exp(logLam) < lamRangeTemp[0]*(1 + z)*(1 + 900/c.to('km/s').value)   # stellar library
+    # mask telluric absorption bands
+    if is_mask_telluric is True:
+        # A, B, and gamma bands, respectively
+        flag |= ((np.exp(logLam) > 7590.) & (np.exp(logLam) < 7720.))
+        flag |= ((np.exp(logLam) > 6860.) & (np.exp(logLam) < 6950.))
+        flag |= ((np.exp(logLam) > 6280.) & (np.exp(logLam) < 6340.))
 
-    return(np.where(flag==0)[0])
+    # Mask edges of stellar library
+    flag |= np.exp(logLam) > (lamRangeTemp[1] *
+                              (1 + z) * (1 - 900. / c.to('km/s').value))
+    flag |= np.exp(logLam) < (lamRangeTemp[0] *
+                              (1 + z) * (1 + 900. / c.to('km/s').value))
+
+    return(np.where(flag == 0)[0])
+
 
 def setup_spectral_library(file_template_list, velscale, FWHM_gal, FWHM_tem):
     """Set-up spectral library
@@ -82,7 +112,7 @@ def setup_spectral_library(file_template_list, velscale, FWHM_gal, FWHM_tem):
     lamRange_temp : array_like
         Wavelength range of templates.
     logLam_temp : array_like
-        Natural logarithmically rebinned wavelength array for templates. 
+        Natural logarithmically rebinned wavelength array for templates.
     """
 
     # file_template_list = 'miles_ssp_padova_all.list'
@@ -145,7 +175,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.', temp_list=N
     sigma_init : float
         Initial guess for line-of-sight  velocity dispersions.
     dv_mask : float
-        Velocity width to be masked for emission lines. 
+        Velocity width to be masked for emission lines.
     wmin_fit : float
         Minimum wavelength to run pPXF.
     wmax_fit : float
