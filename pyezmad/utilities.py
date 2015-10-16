@@ -312,7 +312,7 @@ def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
     Parameters
     ----------
     distance : float
-        a distance to the object in Mpc (astropy.unit instance is recommended)
+        Distance to the object in Mpc (astropy.unit instance is recommended)
     scale : {'kpc', 'pc'}, optional
         Unit to be converted either per 'kpc' or 'pc' (Other units may work).
         The default is 'kpc'.
@@ -344,6 +344,20 @@ def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
 
 
 def get_ned_velocity(name=None):
+    """A wrapper for Astroquery NED function to obtain
+    the heliocentric (I believe) line-of-sight velocity
+    of the specified galaxy.
+
+    Parameters
+    ----------
+    name : str
+        Name of a galaxy.
+
+    Returns
+    -------
+    vel : float
+        Line-of-sight velocity of the galaxy.
+    """
     if name is None:
         raise(NameError("Variable name is not defined."))
     else:
@@ -354,11 +368,41 @@ def get_ned_velocity(name=None):
         return(vel)
 
 
-if __name__=='__main__':
+def get_ned_distance(name=None):
+    """A wrapper for Astroquery NED function to obtain
+    the distance to the specified galaxy.
+    **Not yet implemented because ``astroquery`` does not have
+    a function to retrieve distance entries from NED.
+
+    Parameters
+    ----------
+    name : str
+        Name of a galaxy.
+
+    Returns
+    -------
+    d : float
+        Distance to the galaxy
+    """
+
+    raise(Exception("Sorry, not implemented yet."))
+
+    if name is None:
+        raise(NameError("Variable name is not defined."))
+    else:
+        res = Ned.query_object(name)
+        d = res['Distance'][0]
+        print("Distance to %s is retrived from NED as %6.1f Mpc." %
+              (name, d))
+        return(d)
+
+
+if __name__ == '__main__':
 
     print('do nothing')
     print(per_pixel_to_arcsec())
     print(per_pixel_to_physical(20.))
     print(per_pixel_to_physical(20. * u.Mpc, scale='pc'))
     print(get_ned_velocity('NGC 7552'))
-    get_wavelength(fits.open('../test/ngc4980_voronoi_stack_spec_sn50_mwcorr.fits'))
+    print(get_ned_distance('NGC 7552'))
+    # get_wavelength(fits.open('../test/ngc4980_voronoi_stack_spec_sn50_mwcorr.fits'))
