@@ -178,7 +178,8 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name, dwfit=100., is_che
 
         x = wave[idx_fit]
         y = flux[idx_fit]
-        w = 1./var[idx_fit]
+        # w = 1. / var[idx_fit]
+        w = 1. / np.sqrt(var[idx_fit])
 
         models = {}
 
@@ -248,7 +249,7 @@ def emission_line_fitting(voronoi_binspec_file, ppxf_output_file, outfile, linel
     voronoi_binspec_file : str
         Input FITS file with a shape of Voronoi binned stacked spectra, i.e., (nbins, nwave).
         This supposed to be continuum subtracted, but may work for continuum
-        non-subtracted spectra. 
+        non-subtracted spectra.
     ppxf_output_file : str
         File name of FITS binary table which stores pPXF outputs
         (use stellar line-of-sight velocity as an initial guess).
