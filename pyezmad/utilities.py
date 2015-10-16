@@ -2,6 +2,7 @@
 
 import os.path
 import numpy as np
+import numpy.polynomial.polynomial as polynomial
 
 import astropy.io.fits as fits
 from astropy.visualization import scale_image
@@ -395,6 +396,37 @@ def get_ned_distance(name=None):
         print("Distance to %s is retrived from NED as %6.1f Mpc." %
               (name, d))
         return(d)
+
+
+def muse_fwhm(w, deg=2):
+    """Return an array_like object with MUSE FWHM at given wavelengths.
+
+    Parameters
+    ----------
+    w : array_like
+        Wavelength in angstrom.
+    deg : int, optional
+        Polynomial degree for the best-fit FWHM(lambda) relation.
+
+    Returns
+    -------
+    fwhm : array_like
+        FWHM at given wavelength vector.
+    """
+
+    # set pivot wavelength as 7000A
+    pivot_wavelength = 7000.
+    ww = w - pivot_wavelength
+
+    if deg == 2:
+        coeff = np.array([2.30127694e+00, -5.69354340e-05, 6.37774915e-08])
+    elif deg == 3:
+        coeff = np.array([2.29582574e+00, -1.09992646e-04,
+                          6.71840715e-08, 1.49922507e-11])
+    else:
+        raise(ValueError("deg must be 2 or 3"))
+
+    return(polynomial.polyval(ww, coeff))
 
 
 if __name__ == '__main__':
