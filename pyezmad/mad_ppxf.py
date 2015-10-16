@@ -457,14 +457,4 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
 
 
 if __name__ == '__main__':
-    # infile = '../stacking/ngc4980_voronoi_stack_spec_sn100.fits'
-    # npy_prefix = 'ngc4980_pp'
-    # npy_dir = 'pp_npy_out'
-    # file_template_list = 'miles_ssp_padova_all.list'
-
-    # run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir=npy_dir,
-    #                                 temp_list=file_template_list,
-    #                                 vel_init=1400., sigma_init=40.,
-    #                                 dv_mask=200.,
-    #                                 wmin_fit=4800, wmax_fit=7000.,
-    #                                 n_thread=12)
+    print("do nothing")
