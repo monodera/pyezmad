@@ -10,6 +10,7 @@ from mpdaf.obj import Cube
 
 from .utilities import get_wavelength
 
+
 def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     """Make arrays needed for Voronoi binning routine by Cappellari & Coppin.
 
@@ -18,9 +19,9 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     infile : str
         Input MUSE cube file (a standard MUSE cube format).
     wave_center : float
-        Central wavelenth in angstrom to compute signal and noise. 
+        Central wavelenth in angstrom to compute signal and noise.
     dwave : float
-        Signal and noise are computed within ``wave_center+/-dwave``. 
+        Signal and noise are computed within ``wave_center+/-dwave``.
 
     Returns
     -------
@@ -38,14 +39,15 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     cube = Cube(infile)
 
     # cut subcube [wc-dw:wc+dw]
-    subcube = cube.get_lambda(lbda_min=wave_center-dwave, lbda_max=wave_center+dwave)
+    subcube = cube.get_lambda(lbda_min=wave_center - dwave,
+                              lbda_max=wave_center + dwave)
 
     # compute **average** signal and noise within the specified wavelength range
     signal = np.trapz(subcube.data, x=subcube.wave.coord(), axis=0)
-    signal /= (subcube.wave.get_end()-subcube.wave.get_start())
+    signal /= (subcube.wave.get_end() - subcube.wave.get_start())
 
     var = np.trapz(subcube.var, x=subcube.wave.coord(), axis=0)
-    var /= (subcube.wave.get_end()-subcube.wave.get_start())
+    var /= (subcube.wave.get_end() - subcube.wave.get_start())
 
     # create arrays of x and y coordinates
     x = np.arange(subcube.shape[2])
@@ -54,13 +56,15 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     # make the x, y to 2D coordinates
     xx, yy = np.meshgrid(x, y)
 
-    snmap = signal/np.sqrt(var)
+    snmap = signal / np.sqrt(var)
 
-    return(np.ravel(xx), np.ravel(yy), np.ravel(signal), np.ravel(np.sqrt(var)), snmap)
+    return(np.ravel(xx), np.ravel(yy), np.ravel(signal),
+           np.ravel(np.sqrt(var)), snmap)
 
 
-
-def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_sn=50.):
+def run_voronoi_binning(infile, outprefix,
+                        wave_center=5750, dwave=25.,
+                        target_sn=50.):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -91,11 +95,14 @@ def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_s
     # Compute signal and noise at each pixel
     #
     t_begin = time.time()
-    x, y, signal, noise, snmap = make_snlist_to_voronoi(infile, wave_center, dwave)
+    x, y, signal, noise, snmap = make_snlist_to_voronoi(infile, wave_center,
+                                                        dwave)
     t_end = time.time()
-    print("Time Elapsed for Signal and Noise Computation: %.2f [seconds]" % (t_end-t_begin))
+    print("Time Elapsed for Signal and Noise Computation: %.2f [seconds]" %
+          (t_end - t_begin))
 
-    fits.writeto(outprefix+'_prebin_snmap.fits', snmap.data, fits.getheader(infile), clobber=True)
+    fits.writeto(outprefix + '_prebin_snmap.fits', snmap.data,
+                 fits.getheader(infile), clobber=True)
 
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
@@ -109,7 +116,8 @@ def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_s
         x[idx_valid], y[idx_valid], signal[idx_valid], noise[idx_valid],
         target_sn, plot=False, quiet=False)
     t_end = time.time()
-    print("Time Elapsed for Voronoi Binning: %.2f [seconds]" % (t_end-t_begin))
+    print("Time Elapsed for Voronoi Binning: %.2f [seconds]" %
+          (t_end - t_begin))
 
 
     #
@@ -120,24 +128,30 @@ def run_voronoi_binning(infile, outprefix, wave_center=5750, dwave=25., target_s
     tb_bininfo = Table([np.arange(xNode.size, dtype=np.int),
                         xNode, yNode, xBar, yBar,
                         sn, np.array(nPixels, dtype=np.int), scale],
-                       names=['bin', 'xnode', 'ynode', 'xcen', 'ycen', 'sn', 'npix', 'scale'])
+                       names=['bin', 'xnode', 'ynode', 'xcen', 'ycen',
+                              'sn', 'npix', 'scale'])
 
-    tb_xyinfo.write(outprefix+'_xy2bin_sn%i.fits' % int(target_sn), overwrite=True)
-    tb_xyinfo.write(outprefix+'_xy2bin_sn%i.dat' % int(target_sn), format='ascii.fixed_width')
-    tb_bininfo.write(outprefix+'_bininfo_sn%i.fits' % int(target_sn), overwrite=True)
-    tb_bininfo.write(outprefix+'_bininfo_sn%i.dat' % int(target_sn), format='ascii.fixed_width')
+    tb_xyinfo.write(outprefix + '_xy2bin_sn%i.fits' % int(target_sn),
+                    overwrite=True)
+    tb_xyinfo.write(outprefix + '_xy2bin_sn%i.dat' % int(target_sn),
+                    format='ascii.fixed_width')
+    tb_bininfo.write(outprefix + '_bininfo_sn%i.fits' % int(target_sn),
+                     overwrite=True)
+    tb_bininfo.write(outprefix + '_bininfo_sn%i.dat' % int(target_sn),
+                     format='ascii.fixed_width')
 
     print("Writing... %s_xy2bin_sn%i.fits" % (outprefix, int(target_sn)))
     print("Writing... %s_xy2bin_sn%i.dat" % (outprefix, int(target_sn)))
     print("Writing... %s_bininfo_sn%i.fits" % (outprefix, int(target_sn)))
     print("Writing... %s_bininfo_sn%i.dat" % (outprefix, int(target_sn)))
 
-    return(outprefix+'_xy2bin_sn%i.fits' % int(target_sn),
-           outprefix+'_bininfo_sn%i.fits' % int(target_sn))
+    return(outprefix + '_xy2bin_sn%i.fits' % int(target_sn),
+           outprefix + '_bininfo_sn%i.fits' % int(target_sn))
 
 
 def create_segmentation_image(tb_xy_fits, refimg_fits):
-    """Create a segmentation image based on the output from :py:meth:`run_voronoi_binning`.
+    """Create a segmentation image based on the output
+    from :py:meth:`run_voronoi_binning`.
 
     Parameters
     ----------
@@ -149,7 +163,8 @@ def create_segmentation_image(tb_xy_fits, refimg_fits):
     Returns
     -------
     binimg : :py:class:`numpy.ndarray`
-        A 2D numpy array with the same shape as the reference image storing Voronoi bin ID at each pixel.
+        A 2D numpy array with the same shape as the reference image
+        storing Voronoi bin ID at each pixel.
     """
 
     tb_xy = Table.read(tb_xy_fits)
@@ -162,13 +177,14 @@ def create_segmentation_image(tb_xy_fits, refimg_fits):
 
     xbin, ybin = tb_xy['x'], tb_xy['y']
 
-    # FIXME: this is not efficient, but should finish in an acceptable computational time.
-    for i in xrange(bin_min, bin_max+1):
-        idx = np.where(tb_xy['bin']==i)
+    # FIXME: this is not efficient,
+    # but should finish in an acceptable computational time.
+    for i in xrange(bin_min, bin_max + 1):
+        idx = np.where(tb_xy['bin'] == i)
         xbin = tb_xy['x'][idx]
         ybin = tb_xy['y'][idx]
         for j in xrange(xbin.size):
-            binimg[ybin[j],xbin[j]] = i
+            binimg[ybin[j], xbin[j]] = i
 
     hdu.close()
 
@@ -176,7 +192,8 @@ def create_segmentation_image(tb_xy_fits, refimg_fits):
 
 
 def create_value_image(segmentation_image, value):
-    """Create an 2D Voronoi segmented image filled with given values at each Voronoi bin. 
+    """Create an 2D Voronoi segmented image filled with
+    given values at each Voronoi bin.
 
     Parameters
     ----------
@@ -197,7 +214,7 @@ def create_value_image(segmentation_image, value):
     valimg = np.empty(segmentation_image.shape) + np.nan
 
     for i in xrange(value.size):
-        idx=np.where(segmentation_image==i)
+        idx = np.where(segmentation_image == i)
         valimg[idx] = value[i]
 
     return(valimg)
@@ -209,7 +226,8 @@ def read_stacked_spectra(infile):
     Parameters
     ----------
     infile : str
-        Input FITS file to be processed. It must have a shape of ``(nbin, nwave)``.
+        Input FITS file to be processed.
+        It must have a shape of ``(nbin, nwave)``.
 
     Returns
     -------
@@ -229,23 +247,24 @@ def read_stacked_spectra(infile):
     return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
 
 
-
 def stacking(fcube, ftable, fout):
     """Stack spectra from a cube based on Voronoi binning.
 
     The spectra is stacked by averaging pixels in a bin.
-    So, the resulting spectra have an unit of :math:`10^{-20} erg/s/cm^2/A/pixel^2`.
+    So, the resulting spectra have an unit of
+    :math:`10^{-20} erg/s/cm^2/A/pixel^2`.
 
     Parameters
     ----------
     fcube : str
         FITS file of MUSE cube.
     ftable : str
-        ``xy2bin`` FITS file created by the Voronoi binning process. 
+        ``xy2bin`` FITS file created by the Voronoi binning process.
     fout : str
-        Output FITS file. The output FITS file has a format of ``(NAXIS2, NAXIS2) = (nbin, nwave)``
-        for 1st and 2nd extentions. The stacked spectra and corresponding noise are
-        stored in the 1st (``FLUX``) and 2nd (``VAR``) extensions, repectively. 
+        Output FITS file. The output FITS file has a format of
+        ``(NAXIS2, NAXIS2) = (nbin, nwave)`` for 1st and 2nd extentions.
+        The stacked spectra and corresponding noise are
+        stored in the 1st (``FLUX``) and 2nd (``VAR``) extensions, repectively.
 
     """
 
@@ -255,23 +274,25 @@ def stacking(fcube, ftable, fout):
     bin_start = tb_xy2bin['bin'].min()
     bin_end = tb_xy2bin['bin'].max()
 
-    nbin = bin_end-bin_start+1
+    nbin = bin_end - bin_start + 1
 
     nwave = cube.wave.coord().size
-    stack_spec = np.empty((nbin,nwave), dtype=np.float) + np.nan
-    stack_var  = np.empty((nbin,nwave), dtype=np.float) + np.nan
+    stack_spec = np.empty((nbin, nwave), dtype=np.float) + np.nan
+    stack_var  = np.empty((nbin, nwave), dtype=np.float) + np.nan
 
-    for i in xrange(nbin):
     # for i in xrange(20):
+    for i in xrange(nbin):
 
-        idx = tb_xy2bin['bin']==i
+        idx = tb_xy2bin['bin'] == i
         xbin = tb_xy2bin['x'][idx]
         ybin = tb_xy2bin['y'][idx]
 
-        stack_data_bin = np.array([cube.data[:,iy,ix] for iy,ix in zip(ybin,xbin)])
+        stack_data_bin = np.array([cube.data[:, iy, ix]
+                                   for iy, ix in zip(ybin, xbin)])
         stack_data_bin = np.nansum(stack_data_bin, axis=0)
 
-        stack_var_bin = np.array([cube.var[:,iy,ix] for iy,ix in zip(ybin,xbin)])
+        stack_var_bin = np.array([cube.var[:, iy, ix]
+                                  for iy, ix in zip(ybin, xbin)])
         stack_var_bin = np.nansum(stack_var_bin, axis=0)
 
         # subcube_data_test = np.zeros(nwave)
@@ -286,8 +307,8 @@ def stacking(fcube, ftable, fout):
         stack_data_bin /= tb_xy2bin['bin'][idx].size
         stack_var_bin /= tb_xy2bin['bin'][idx].size**2
 
-        stack_spec[i,:] = stack_data_bin
-        stack_var[i,:] = stack_var_bin
+        stack_spec[i, :] = stack_data_bin
+        stack_var[i, :] = stack_var_bin
 
     prihdu = fits.PrimaryHDU()
     data_hdu = fits.ImageHDU(data=stack_spec, name='FLUX')
@@ -314,11 +335,12 @@ def stacking(fcube, ftable, fout):
     return()
 
 
-
-def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix, outfile):
-    """Subtract continuum defined as the best-fit of pPXF from the Voronoi binned spectra.
-       Here, 'simple' means that the Voronoi binning is identical for stellar continuum fitting
-       and parent binned spectra.
+def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
+                                   ppxf_npy_prefix, outfile):
+    """Subtract continuum defined as the best-fit of pPXF
+    from the Voronoi binned spectra.
+    Here, 'simple' means that the Voronoi binning is
+    identical for stellar continuum fitting and parent binned spectra.
 
     Parameters
     ----------
@@ -336,7 +358,8 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_
     wave : array_like
         Wavelength.
     flux : :py:class:`numpy.ndarray`
-        Continuum subtracted 2D array of Voronoi binned spectra with a shape of ``(nbins, nwave)``.
+        Continuum subtracted 2D array of Voronoi binned spectra
+        with a shape of ``(nbins, nwave)``.
     var : :py:class:`numpy.ndarray`
         2D array of Voronoi binned variance with a shape of ``(nbins, nwave)``.
     header : :py:class:`astropy.io.fits.Header`
@@ -351,13 +374,13 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_
     var_cont_sub = np.empty_like(var) + np.nan
 
     for i in range(nbins):
-        pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix+'_%06i.npy' % i)
+        pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix + '_%06i.npy' % i)
         pp = np.load(pp_npy)[0]
 
         best = np.interp(wave, pp.lam, pp.bestfit, left=np.nan, right=np.nan)
 
-        flux_cont_sub[i,:] = flux[i,:] - best
-        var_cont_sub[i,np.isfinite(best)] = var[i,np.isfinite(best)]
+        flux_cont_sub[i, :] = flux[i, :] - best
+        var_cont_sub[i, np.isfinite(best)] = var[i, np.isfinite(best)]
 
     hdu = fits.open(voronoi_binspec_file)
     hdu['FLUX'].data = flux_cont_sub
@@ -369,7 +392,8 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_
            fits.open(voronoi_binspec_file)['FLUX'].header)
 
 
-def create_kinematics_image(hdu_segimg, tb_vel, output_fits_name, is_save=True):
+def create_kinematics_image(hdu_segimg, tb_vel,
+                            output_fits_name, is_save=True):
     """Create kinematics map based on a table object.
 
     Parameters
@@ -378,7 +402,8 @@ def create_kinematics_image(hdu_segimg, tb_vel, output_fits_name, is_save=True):
         HDUList of the segmentation image.
     tb_vel : :py:class:`astropy.table.Table`
         Table object containing information on kinematics.
-        The table must contain ``vel``, ``sig``, ``errvel``, and ``errsig`` keys.
+        The table must contain ``vel``, ``sig``, ``errvel``,
+        and ``errsig`` keys.
     output_file_name : str
         Output file name (FITS format).
     is_save : bool
@@ -420,12 +445,11 @@ def create_kinematics_image(hdu_segimg, tb_vel, output_fits_name, is_save=True):
             refheader.pop(k, None)
 
     for hdu in [vel_hdu, evel_hdu, sig_hdu, esig_hdu]:
-        for k,v in refheader.items():
-            if k!='EXTNAME':
+        for k, v in refheader.items():
+            if k != 'EXTNAME':
                 hdu.header[k] = v
 
     hdulist = fits.HDUList([prihdu, vel_hdu, evel_hdu, sig_hdu, esig_hdu])
     hdulist.writeto(output_fits_name, clobber=True)
 
     return(velimg, errvelimg, sigimg, errsigimg)
-
