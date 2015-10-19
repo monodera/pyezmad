@@ -16,6 +16,9 @@ import matplotlib.cm as cm
 
 import pyezmad
 
+# maybe there is a better way to set this number...
+sigma2fwhm = 2.3548200
+
 
 def read_emission_linelist(wavelength='air'):
     path_to_database = os.path.join(pyezmad.__path__[0],
@@ -373,7 +376,7 @@ def get_ned_distance(name=None):
     """A wrapper for Astroquery NED function to obtain
     the distance to the specified galaxy.
     **Not yet implemented because ``astroquery`` does not have
-    a function to retrieve distance entries from NED.
+    a function to retrieve distance entries from NED.**
 
     Parameters
     ----------
