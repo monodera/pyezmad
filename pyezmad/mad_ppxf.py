@@ -20,10 +20,8 @@ from ppxf import ppxf
 import ppxf_util as util
 
 from .voronoi import read_stacked_spectra
-from .utilities import get_wavelength, read_emission_linelist, muse_fwhm
-
-
-sigma2fwhm = 2.3548200
+from .utilities import get_wavelength, read_emission_linelist,\
+    muse_fwhm, sigma2fwhm
 
 
 def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
