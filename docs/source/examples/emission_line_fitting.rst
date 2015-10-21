@@ -29,7 +29,7 @@ Fitting
 
 Each emission line is assumed to be expressed as a Gaussian.
 
-::
+.. code:: python
 
     from pyezmad.emission_line_fitting import emission_line_fitting
 
@@ -55,46 +55,13 @@ fitting. If you want to fit a single line, the line list should be like
 
 If you want to check each fitting, just set ``is_checkeach=True``.
 
-Currently, the following line names are supported, but it's very easy to
-extend.
+To see the supported emission lines, see ``pyezmad/database/emission_lines.data``.
 
-.. code:: python
-
-    # pyezmad/utilities.py
-    linelist = {'OII3726'  : 3727.09,
-                'OII3729'  : 3729.88,
-                'H12'      : 3751.22,
-                'H11'      : 3771.70,
-                'H10'      : 3798.98,
-                'H9'       : 3836.48,
-                'NeIII3869': 3869.81,
-                'H8'       : 3890.15,
-                'NeIII3967': 3968.53,
-                'Hepsilon' : 3971.19,
-                'Hdelta'   : 4102.92,
-                'Hgamma'   : 4341.69,
-                'Hbeta'    : 4862.69,
-                'OIII4959' : 4960.30,
-                'OIII5007' : 5008.24,
-                'NII6548'  : 6549.84,
-                'NII6584'  : 6585.23,
-                'Halpha'   : 6564.61,
-                'SII6717'  : 6718.32,
-                'SII6731'  : 6732.71,
-                'NII5755'  : 5756.24,
-                'OIII4363' : 4364.44,
-                'OI6300'   : 6302.04,
-                'HeI3889'  : 3889.75,
-                'HeI5876'  : 5877.30,
-                'HeI6678'  : 6679.996,
-                # duplicated keys...
-                'NII6583'  : 6585.23
-                }
 
 Output file (complicated...)
 ----------------------------
 
-The output file ``'ngc4980_voronoi_out_emprop_sn50.fits`` has a bit
+The output file ``ngc4980_voronoi_out_emprop_sn50.fits`` has a bit
 complicated format (any suggestion for improvement is welcome!). In each
 extension stores the result for one of emission line groups. In the
 above example, there are three extensions named ``GROUP0``, ``GROUP1``,
@@ -122,6 +89,8 @@ With these infomation, you can obtain, for example, Halpha flux with
 ``hdu[extname['Halpha']].data['f_Halpha']``.
 
 There resulting velocity field is the following.
+Note that the velocity dispersion is already instrumental resolution subtracted. 
+
 
 **Velocity map**
 
@@ -130,9 +99,10 @@ There resulting velocity field is the following.
 
    Halpha velocity map
 
+
 **Velocity dispersion map**
 
 .. figure:: ../images/ngc4980_sig_halpha.png
    :alt: Halpha velocity dispersion map
 
-   Halpha velocity dispersion map
+   Halpha velocity dispersion map.

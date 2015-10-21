@@ -58,7 +58,7 @@ follows.
                                     FWHM_muse=2.51, FWHM_tem=2.51)
 
 Here is a short descriptions for the input parameters.
-See :py:`meth:pyezmad.mad_ppxf.run_voronoi_stacked_spectra_all` for a detail.
+See :py:meth:`pyezmad.mad_ppxf.run_voronoi_stacked_spectra_all` for a detail.
 
 -  ``infile`` - input Voronoi binned spectra made in the previous step
 -  ``npy_prefix`` - pPXF result will be saved as a Numpy binary file

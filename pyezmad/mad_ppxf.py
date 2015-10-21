@@ -144,9 +144,9 @@ def setup_spectral_library(file_template_list, velscale,
     if FWHM_inst is None:
         FWHM_inst_array = muse_fwhm(wtempl, deg=2)
     else:
-        if type(np.float(FWHM_inst)) == float:
+        if isinstance(np.float(FWHM_inst), float):
             FWHM_inst_array = np.ones(wtempl.size) * FWHM_inst
-        elif type(FWHM_inst) == np.ndarray:
+        elif isinstance(FWHM_inst, np.ndarray):
             FWHM_inst_array = FWHM_inst
         else:
             raise(TypeError("FWHM_inst must be a scalar or numpy.ndarray."))

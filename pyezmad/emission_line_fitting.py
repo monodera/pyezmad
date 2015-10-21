@@ -11,13 +11,10 @@ import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 import lmfit
 
-# from .ppxf_kinematics import read_voronoi_stack
-from .voronoi import read_stacked_spectra
-# from .utilities import linelist
 from .utilities import read_emission_linelist, muse_fwhm, sigma2fwhm
 
 
-def search_lines(hdu, line_list):
+def search_lines(hdu, line_list, verbose=True):
     """Search the extension ID and keys for the input list.
 
     Parameters
@@ -72,13 +69,15 @@ def search_lines(hdu, line_list):
         iext = 0
         iline = 0
         while True:
-            # print(iext, iline)
+            if iext == len(hdu):
+                break
             key_line = 'LINE%i' % iline
             if key_line in hdu[iext].header:
                 if (hdu[iext].header[key_line] == k):
                     extname[k] = hdu[iext].header['EXTNAME']
                     keyname[k] = key_line
-                    print('Key found for %s' % k)
+                    if verbose is True:
+                        print('Key found for %s' % k)
                     break
                 else:
                     iline += 1
@@ -86,8 +85,6 @@ def search_lines(hdu, line_list):
             else:
                 iext += 1
                 iline = 0
-    print(extname)
-    print(keyname)
     return(extname, keyname)
 
 
@@ -174,11 +171,10 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
     Returns
     -------
-    outfitting : :py:obj:`np.ndarray`
+    outfitting : :py:class:`numpy.ndarray`
         ndarray of dictionaries containing fitting results.
         Each dictionary contains
-        ``{'flux', 'eflux', 'vel', 'sig', 'evel', 'esig',
-           'cont_a', 'cont_b', 'cont_c', 'chi2'}``.
+        ``{'flux', 'eflux', 'vel', 'sig', 'evel', 'esig', 'cont_a', 'cont_b', 'cont_c', 'chi2'}``.
 
     """
 
@@ -285,7 +281,7 @@ def emission_line_fitting(voronoi_binspec_file,
                           linelist_name,
                           is_checkeach=False,
                           instrument='MUSE',
-                          master_linelist=read_emission_linelist()):
+                          master_linelist=None):
     """Fit emission lines to (continuum-subtracted) spectra
     with Voronoi output format.
 
@@ -310,7 +306,7 @@ def emission_line_fitting(voronoi_binspec_file,
     instrument : str
         Name of the instrument to subtract instrumental resolution.
         Only MUSE is supported now.
-    master_linelist : dictionary
+    master_linelist : dictionary, optional
         Master linelist for emission lines.
         By default, the list is loaded from
         a file in the ``database`` directory
@@ -325,6 +321,12 @@ def emission_line_fitting(voronoi_binspec_file,
 
     if instrument != "MUSE":
         raise(ValueError("Only MUSE is supported as instrument."))
+
+    if master_linelist is None:
+        master_linelist = read_emission_linelist()
+
+    # need to import here for some reason...
+    from .voronoi import read_stacked_spectra
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
     tb_ppxf = Table.read(ppxf_output_file)
