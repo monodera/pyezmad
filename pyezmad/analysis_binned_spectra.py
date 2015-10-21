@@ -16,7 +16,7 @@ from .utilities import get_wavelength
 # from .sfr import sfr_halpha
 
 from .emissionline import EmissionLine
-from .ppxf import Ppxf
+from .mad_ppxf import Ppxf
 from .voronoi import Voronoi
 
 

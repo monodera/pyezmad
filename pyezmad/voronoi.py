@@ -415,7 +415,9 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
            fits.getheader(voronoi_binspec_file, 'FLUX'))
 
 
-def subtract_emission_line(voronoi_binspec_file, emission_line_file, linename=None):
+def subtract_emission_line(voronoi_binspec_file,
+                           emission_line_file,
+                           linename=None):
     """Subtract emission lines from observed (binned) spectra by using
     the best-fit parameters.
 
