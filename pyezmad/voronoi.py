@@ -8,7 +8,33 @@ import astropy.io.fits as fits
 from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
 
-from .utilities import get_wavelength
+# from .emission_line_fitting import gaussian
+from .emission_line_fitting import gaussian, search_lines
+from .utilities import (get_wavelength, read_emission_linelist,
+                        muse_fwhm, sigma2fwhm)
+
+
+class Voronoi:
+    def __init__(self, voronoi_xy=None, voronoi_bininfo=None):
+        if (voronoi_xy is None) or (voronoi_bininfo is None):
+            raise(
+                ValueError(
+                    "Both voronoi_ xy and voronoi_bininfo \
+                    must be set togather."))
+        else:
+            self.load_data(voronoi_xy, voronoi_bininfo)
+
+    def load_data(self, voronoi_xy, voronoi_bininfo):
+        self.__xy = Table.read(voronoi_xy)
+        self.__bininfo = Table.read(voronoi_bininfo)
+
+    @property
+    def xy(self):
+        return(self.__xy)
+
+    @property
+    def bininfo(self):
+        return(self.__bininfo)
 
 
 def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
@@ -64,7 +90,7 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 def run_voronoi_binning(infile, outprefix,
                         wave_center=5750, dwave=25.,
-                        target_sn=50.):
+                        target_sn=50., quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -81,6 +107,8 @@ def run_voronoi_binning(infile, outprefix,
         The default is 25 angstrom.
     target_sn : float, optional
         Target S/N per pixel for Voronoi binning. The default is 50.
+    quiet : bool, optional
+        Toggle ``quiet`` option in ``ppxf.voronoi_2d_binning()``.
 
     Returns
     -------
@@ -114,7 +142,7 @@ def run_voronoi_binning(infile, outprefix,
     t_begin = time.time()
     binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = voronoi_2d_binning(
         x[idx_valid], y[idx_valid], signal[idx_valid], noise[idx_valid],
-        target_sn, plot=False, quiet=False)
+        target_sn, plot=False, quiet=quiet)
     t_end = time.time()
     print("Time Elapsed for Voronoi Binning: %.2f [seconds]" %
           (t_end - t_begin))
@@ -240,9 +268,6 @@ def read_stacked_spectra(infile):
     """
 
     hdu = fits.open(infile)
-    # h_obj = hdu['FLUX'].header
-    # h_var = hdu['VAR'].header
-    # wave = h_obj['CRVAL1'] + h_obj['CDELT1']*(np.arange(h_obj['NAXIS1'])-h_obj['CRPIX1']+1)
     wave = get_wavelength(hdu, ext='FLUX', axis=1)
     return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
 
@@ -339,7 +364,7 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
                                    ppxf_npy_prefix, outfile):
     """Subtract continuum defined as the best-fit of pPXF
     from the Voronoi binned spectra.
-    Here, 'simple' means that the Voronoi binning is
+    Here, 'simple' means that the Voronoi binning is assumed to be
     identical for stellar continuum fitting and parent binned spectra.
 
     Parameters
@@ -389,7 +414,87 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
     hdu.writeto(outfile, clobber=True)
 
     return(wave, flux_cont_sub, var_cont_sub,
-           fits.open(voronoi_binspec_file)['FLUX'].header)
+           fits.getheader(voronoi_binspec_file, 'FLUX'))
+
+
+def subtract_emission_line(voronoi_binspec_file,
+                           emission_line_file,
+                           linename=None):
+    """Subtract emission lines from observed (binned) spectra by using
+    the best-fit parameters.
+
+    Parameters
+    ----------
+    voronoi_binspec_file : str
+        Input file of Voronoi binned stacked spectra (FITS format).
+    emission_line_file : str
+        Input file storing the best-fit emission line fitting parameters.
+    linename : list, optional
+        List of emission line names to be subtracted.
+        By default, it scans headers of input FITS file
+        and subtract all found lines.
+
+    Returns
+    -------
+    hdulist : :astropy:class:`astropy.io.fits.HDUList`
+        HDUList object containging emission line subtracted spectra, variance,
+        and emission line models in 1st, 2nd, and 3rd extensions, respectively.
+        Headers are copied from the input FITS file.
+    wave : numpy.ndarray
+        Wavelength array reconstructed from the input header information.
+    spec_out : numpy.ndarray
+        Emission line subtracted spectra.
+    var : numpy.ndarray
+        Variance spectra, copied from the input cube
+        (i.e., assuming noise less emission line models).
+    emspec : numpy.ndarray
+        Reconstruncted emission line spectra.
+    """
+
+    wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
+
+    hdu_em = fits.open(emission_line_file)
+
+    nbins = flux.shape[0]
+
+    master_linelist = read_emission_linelist()
+    if linename is None:
+        linelist = master_linelist
+    else:
+        linelist = {}
+        for k in linename:
+            linelist[k] = master_linelist[k]
+
+    emspec = np.zeros_like(flux)
+
+    extname, keyname = search_lines(hdu_em, linelist)
+
+    # MO: This loop may be slow as it scans
+    #     all emission lines in the master list.
+    for ibin in range(nbins):
+        if ibin % 100 == 0:
+            print("Emission line subtracted for %i/%i spectra."
+                  % (ibin, nbins))
+        for k in extname.keys():
+            tmp_spec = gaussian(wave,
+                                hdu_em[extname[k]].data['f_' + k][ibin],
+                                hdu_em[extname[k]].data['vel'][ibin],
+                                hdu_em[extname[k]].data['sig'][ibin],
+                                linelist[k])
+            emspec[ibin, :] += tmp_spec
+
+    spec_out = flux - emspec
+
+    hdulist = fits.HDUList([
+        fits.PrimaryHDU(header=hdu_em[0].header),
+        fits.ImageHDU(data=spec_out,
+                      header=hdu_em[1].header, name='FLUX'),
+        fits.ImageHDU(data=var,
+                      header=hdu_em[2].header, name='VAR'),
+        fits.ImageHDU(data=emspec,
+                      header=hdu_em[1].header, name='EMSPEC')])
+
+    return(hdulist, wave, spec_out, var, emspec)
 
 
 def create_kinematics_image(hdu_segimg, tb_vel,

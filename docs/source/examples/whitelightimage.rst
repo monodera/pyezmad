@@ -4,12 +4,12 @@ White-light image
 White-light image (i.e., just summing up the cube across the wavelength
 axis) can be made as follows.
 
-.. code:: python
+::
 
     import os, os.path
     import matplotlib.cm as cm
 
-    from pyezmad.utilities import :py:meth:`create_whitelight_image`
+    from pyezmad.utilities import create_whitelight_image
 
     infile = '/net/astrogate/export/astro/shared/MAD/MUSE/P95/reduceddata/NGC4980/NGC4980_FINAL.fits'
 

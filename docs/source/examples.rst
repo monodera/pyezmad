@@ -9,8 +9,8 @@ MUSE data cube of NGC 4980.
 
    examples/whitelightimage
    examples/voronoi_binning
+   examples/spectral_stacking
    examples/ppxf
    examples/emission_line_fitting
-   examples/spectral_stacking
    examples/narrowbandimage
 

@@ -44,7 +44,9 @@ You need to put the files into directories where your Python can import.
 Since third-parties are not allowed to re-distribute his programs,
 they are not included in the ``pyezmad`` repository.
 
-Once the dependencies are installed, you can install ``pyezmad`` as follows. ::
+Once the dependencies are installed, you can install ``pyezmad`` as follows.
+
+.. code:: shell
 
   git clone git@bitbucket.org:monodera/pyezmad.git
   cd pyezmad
@@ -54,14 +56,18 @@ Once the dependencies are installed, you can install ``pyezmad`` as follows. ::
 If you failed to download the code by a permission issue, please make sure to generate and register your SSH key to bitbucket
 (see `the instruction <https://confluence.atlassian.com/bitbucket/add-an-ssh-key-to-an-account-302811853.html>`_).
 
-You can check if ``pyezmad`` is installed at a proper location. ::
+You can check if ``pyezmad`` is installed at a proper location.
+
+.. code:: python
 
   import pyezmad
   print(pyezmad.__version__)
 
 
 
-(Optional) If you are lazy to install anything by yourself, you can try my Python setup (assuming you use ``bash`` as login shell). ::
+(Optional) If you are lazy to install anything by yourself, you can try my Python setup (assuming you use ``bash`` as login shell).
+
+.. code:: shell
 
     # on finvarra
     . /net/astrogate/export/astro/shared/MUSE/user/monodera/python_venv_finvarra/bin/activate
@@ -70,6 +76,7 @@ You can check if ``pyezmad`` is installed at a proper location. ::
     . /net/astrogate/export/astro/shared/MUSE/user/monodera/python_venv_theia/bin/activate
 
 
+To go back to the original python environment, just type ``deactivate`` in the terminal.
 
 
 Known issues (mainly excuses)

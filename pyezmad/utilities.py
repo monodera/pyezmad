@@ -20,6 +20,16 @@ import pyezmad
 sigma2fwhm = 2.3548200
 
 
+def error_fraction(x1, x2, ex1, ex2):
+    """Compute error of x1/x2 when errors of x1 and x2 are given.
+    """
+
+    err2 = (ex1 / x2)**2 + (x1 * ex2 / x2**2)**2
+    err = np.sqrt(err2)
+
+    return(err)
+
+
 def read_emission_linelist(wavelength='air'):
     path_to_database = os.path.join(pyezmad.__path__[0],
                                     'database/emission_lines.dat')
@@ -219,13 +229,13 @@ def create_narrowband_image(hducube,
         zz = 1.
         ww = wcenter * np.ones_like(nbimg)
     else:
-        if type(vel) != np.ndarray:
+        if isinstance(vel, np.ndarray) is False:
             vel = np.ones_like(nbimg) * vel
         zz = (1. + vel * u.km / u.s / c.to('km / s'))
         ww = wcenter * zz
 
     if dw is None:
-        if type(vdisp) != np.ndarray:
+        if isinstance(vdisp, np.ndarray) is False:
             vdisp = np.ones_like(nbimg) * vdisp
         dwave = (vdisp * u.km / u.s) / c.to('km / s') * ww * nsig
     elif vdisp is None:
@@ -333,7 +343,7 @@ def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
         by ``f * per_pixel_to_physical(distance, scale='kpc')**2``.
     """
 
-    if type(distance) is not u.quantity.Quantity:
+    if isinstance(distance, u.quantity.Quantity) is False:
         distance *= u.Mpc
         print("Warning: Distance is forced to be in astropy.units.Mpc")
 

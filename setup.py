@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='pyezmad',
-      version='0.1.10',
+      version='0.1.20',
       description='Python MAD Analysis Tools',
       url='https://bitbucket.org/monodera/pyezmad',
       author='Masato Onodera',

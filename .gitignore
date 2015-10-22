@@ -13,8 +13,9 @@ site/
 
 *.pyc
 
+*flymake*
+
 mpdaf.log
 .omakedb*
-Omakefile.omc
-Omakeroot
-Omakeroot.omc
+OMakefile.omc
+OMakeroot*
