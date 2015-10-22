@@ -90,7 +90,7 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 def run_voronoi_binning(infile, outprefix,
                         wave_center=5750, dwave=25.,
-                        target_sn=50.):
+                        target_sn=50., quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -107,6 +107,8 @@ def run_voronoi_binning(infile, outprefix,
         The default is 25 angstrom.
     target_sn : float, optional
         Target S/N per pixel for Voronoi binning. The default is 50.
+    quiet : bool, optional
+        Toggle ``quiet`` option in ``ppxf.voronoi_2d_binning()``.
 
     Returns
     -------
@@ -140,7 +142,7 @@ def run_voronoi_binning(infile, outprefix,
     t_begin = time.time()
     binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = voronoi_2d_binning(
         x[idx_valid], y[idx_valid], signal[idx_valid], noise[idx_valid],
-        target_sn, plot=False, quiet=False)
+        target_sn, plot=False, quiet=quiet)
     t_end = time.time()
     print("Time Elapsed for Voronoi Binning: %.2f [seconds]" %
           (t_end - t_begin))

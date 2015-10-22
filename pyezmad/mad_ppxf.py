@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from __future__ import print_function
 
 import warnings
@@ -73,6 +74,53 @@ class Ppxf:
     @property
     def e_sig_img(self):
         return(self.__e_sig_img)
+
+
+def gaussian_filter1d(spec, sig):
+    """
+    Convolve a spectrum by a Gaussian with different sigma for every
+    pixel, given by the vector "sigma" with the same size as "spec".
+    If al sigma are the same this routine produces the same output as
+    scipy.ndimage.gaussian_filter1d, except for the border treatment.
+    Here the first/last p pixels are filled with zeros.
+    When creating  template library for SDSS data, this implementation
+    is 60x faster than the naive loop over pixels.
+
+    Parameters
+    ----------
+    spec : :numpy:class:`numpy.ndarray`
+        Input spectrum. It must be 1D.
+    sig : float
+        Gaussian sigma for a convolution kernel.
+
+    Returs
+    ------
+    conv_spectrum : :numpy:class:`numpy.ndarray`
+        Convolved spectrum with the same dimension as the input.
+
+    Notes
+    -----
+    This function is copied from ppxf_utils.py from Michele Cappellari's
+    original distribution.  Only modification over the original version
+    is to use :numpy:meth:`numpy.nansum` instead of :numpy:meth:`numpy.sum`.
+    """
+
+    sig = sig.clip(0.01)  # forces zero sigmas to have 0.01 pixels
+    p = int(np.ceil(np.max(3 * sig)))
+    m = 2 * p + 1  # kernel size
+    x2 = np.linspace(-p, p, m)**2
+
+    n = spec.size
+    a = np.zeros((m, n))
+    for j in range(m):   # Loop over the small size of the kernel
+        a[j, p:-p] = spec[j:n - m + j + 1]
+
+    gau = np.exp(-x2[:, None] / (2 * sig**2))
+    gau /= np.nansum(gau, 0)[None, :]
+
+    conv_spectrum = np.nansum(a * gau, 0)
+
+    return conv_spectrum
 
 
 def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
@@ -150,7 +198,7 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
 
 def setup_spectral_library(file_template_list, velscale,
-                           FWHM_inst, FWHM_templ):
+                           FWHM_inst, FWHM_templ, normalize=False):
     """Set-up spectral library
 
     Parameters
@@ -166,6 +214,8 @@ def setup_spectral_library(file_template_list, velscale,
         Instrumental spectral resolution, FWHM in angstrom.
     FWHM_templ : float
         Spectral resolution of the templates, FWHM in angstrom.
+    normalize : bool, optional
+        Normalize templates when it's ``True``. The default is ``False``.
 
     Returns
     -------
@@ -208,16 +258,25 @@ def setup_spectral_library(file_template_list, velscale,
     sigma = FWHM_diff / sigma2fwhm / h2['CDELT1']
 
     for i in range(template_list.size):
+        if i % 100 == 0:
+            print("%i/%i templates are processed." % (i, template_list.size))
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
         # perform a convolution with wavelength-dependent sigma
         if np.all(sigma > 0.):
-            ssp = util.gaussian_filter1d(ssp, sigma)
+            ssp = gaussian_filter1d(ssp, sigma)
+            # ssp = util.gaussian_filter1d(ssp, sigma)
         # if sigma > 0.:  # old version with scipy
         #     ssp = ndimage.gaussian_filter1d(ssp, sigma)
         sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp,
                                                    velscale=velscale)
-        templates[:, i] = sspNew  # Templates are *not* normalized here
+        if normalize is True:
+            norm = np.nanmedian(sspNew)
+            sspNew /= norm
+
+        templates[:, i] = sspNew
+
+    print("%i/%i templates are processed." % (template_list.size, template_list.size))
 
     return templates, lamRange_temp, logLam_temp
 
@@ -229,7 +288,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     wmin_fit=4800, wmax_fit=7000., n_thread=12,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
-                                    is_mask_telluric=True):
+                                    is_mask_telluric=True, normalize=False):
     """Run pPXF for all Voronoi binned spectra formatted as
     ``pyezmad.voronoi`` binned spectra.
 
@@ -278,6 +337,8 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
     is_mask_telluric : bool
         Flag to determine whether to mask telluric absorption band or not.
+    normalize : bool, optional
+        Normalize templates when it's ``True``. The default is ``False``.
     """
 
     if not os.path.exists(npy_dir):
@@ -299,8 +360,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
     # ------------------- Setup templates -----------------------
 
+    print("Preparing templates")
     stars_templates, lamRange_temp, logLam_temp \
-        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem)
+        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem, normalize=normalize)
     # stars_templates /= np.median(stars_templates)
     # Normalizes stellar templates by a scalar
 
@@ -337,11 +399,16 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                 = util.log_rebin(lamRange_galaxy, noise0[ibin, mask]**2)
             noise = np.sqrt(noise2)
 
+            t_begin_each = time.time()
             pp = ppxf(stars_templates, galaxy, noise, velscale,
                       start=[vel_init, sigma_init],
                       lam=np.exp(logLam_galaxy),
                       goodpixels=goodPixels, vsyst=dv,
                       **ppxf_keydic)
+            t_end_each = time.time()
+            if not ppxf_keydic['quiet']:
+                print("Time elapsed for a single run %f [seconds]"
+                      % (t_end_each - t_begin_each))
 
             pp.star = None
             pp.star_rfft = None
@@ -507,3 +574,11 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
 
 if __name__ == '__main__':
     print("do nothing")
+# ssp_hr_elodie31_kroupa_tracksZ0.0001.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.2M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.0004.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.004.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.008.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.02.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.05.dat
+# -rw-rw-r--+ 1 monodera astcarol 3.0M Oct 22 16:35 ssp_hr_elodie31_kroupa_tracksZ0.1.dat
+# -rw-rw-r--+ 1 monodera astcarol  418 Oct 22 16:35 ssp_hr_elodie31_kroupa_SSPs.dat
