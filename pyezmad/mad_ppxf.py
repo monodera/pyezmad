@@ -88,21 +88,22 @@ def gaussian_filter1d(spec, sig):
 
     Parameters
     ----------
-    spec : :numpy:class:`numpy.ndarray`
+    spec : :py:class:`~numpy:numpy.ndarray`
         Input spectrum. It must be 1D.
     sig : float
         Gaussian sigma for a convolution kernel.
 
-    Returs
-    ------
-    conv_spectrum : :numpy:class:`numpy.ndarray`
+    Returns
+    -------
+    conv_spectrum : :py:class:`~numpy:numpy.ndarray`
         Convolved spectrum with the same dimension as the input.
 
     Notes
     -----
     This function is copied from ppxf_utils.py from Michele Cappellari's
     original distribution.  Only modification over the original version
-    is to use :numpy:meth:`numpy.nansum` instead of :numpy:meth:`numpy.sum`.
+    is to use :py:func:`~numpy:numpy.nansum`
+    instead of :py:func:`~numpy:numpy.sum`.
     """
 
     sig = sig.clip(0.01)  # forces zero sigmas to have 0.01 pixels
@@ -130,7 +131,7 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
     Parameters
     ----------
-    logLam : ndarray
+    logLam : :py:class:`~numpy:numpy.ndarray`
         logarithmically rebinned wavelength grid (Note: it's natural log).
     LamRangeTemp : array_like
         Minimum and maximum wavelengths of template spectra.
@@ -141,7 +142,8 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
         ``v(z)+/-dv_mask`` will be masked.
     linelist : list
         List of emission line names as defined in
-        ``database/emission_lines.dat`` in the repository.
+        `database/emission_lines.dat <../pyezmad/database/emission_lines.dat>`_
+        in the repository.
         The default set is ["Hbeta", "OIII4959", "OIII5007",
         "NaI5890", "NaI5896", "OI6300", "NII6548", "NII6583",
         "Halpha", "SII6716", "SII6731"].
@@ -150,7 +152,7 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
     Returns
     -------
-    ndarray
+    goodpixels : :py:class:`~numpy:numpy.ndarray`
         An array containing indices of valid pixels.
     """
 
@@ -219,7 +221,7 @@ def setup_spectral_library(file_template_list, velscale,
 
     Returns
     -------
-    templates : ndarray
+    templates : :py:class:`~numpy:numpy.ndarray`
         template array with a shape of ``(nwave, ntemplate)``.
     lamRange_temp : array_like
         Wavelength range of templates.
@@ -289,8 +291,8 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
                                     is_mask_telluric=True, normalize=False):
-    """Run pPXF for all Voronoi binned spectra formatted as
-    ``pyezmad.voronoi`` binned spectra.
+    """Run pPXF for all Voronoi binned spectra made with
+    :py:meth:`pyezmad.voronoi.stack`.
 
     This function runs pPXF in parallel for Voronoi-binned spectra.
     It will save the results as ``pp`` object in a numpy binary form
@@ -298,7 +300,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     These output files will be post-processed in the further analysis.
     It's a bit inconvenient, but at this moment, I'd like to keep as it is
     because we don't really know what best-fit parameters can be used later
-    (and the shared memory functionality of Python's ``multiprocessing``
+    (and the shared memory functionality of Python's :py:mod:`multiprocessing`
     and the numpy array are not very friendly).
 
     Parameters
@@ -327,15 +329,15 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     FWHM_inst : array_like, optional
         Instrumental resolution in angstrom in FWHM.
         If it's ``None``, the MUSE resolution will be computed
-        by :py:meth:`pyezmad.mad_ppxf.muse_fwhm`.
+        by :py:func:`pyezmad.mad_ppxf.muse_fwhm`.
     FWHM_temp : float, optional
         Template resolution in angstrom in FWHM.
     ppxf_kwargs : dict, optional
         Additional pPXF options.
-    linelist : list
+    linelist : list, optional
         List of emission line names to be masked,
         e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
-    is_mask_telluric : bool
+    is_mask_telluric : bool, optional
         Flag to determine whether to mask telluric absorption band or not.
     normalize : bool, optional
         Normalize templates when it's ``True``. The default is ``False``.
@@ -460,15 +462,15 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
     table : astropy.table.Table
         Table object containing
         ``(bin ID, velocity, sigma, velocity error, sigma error)``.
-    binid : ndarray
+    binid : :py:class:`~numpy:numpy.ndarray`
         Voronoi bin ID.
-    vel : ndarray
+    vel : :py:class:`~numpy:numpy.ndarray`
         Best velocity (km/s) solution.
-    sig : ndarray
+    sig : :py:class:`~numpy:numpy.ndarray`
         Best sigma (km/s) solution.
-    errvel : ndarray
+    errvel : :py:class:`~numpy:numpy.ndarray`
         Formal error in velocity (km/s) corrected to :math:`\\chi^2_\\nu=1`.
-    errsig : ndarray
+    errsig : :py:class:`~numpy:numpy.ndarray`
         Formal error in velocity dispersion (km/s)
         corrected to :math:`\\chi^2_\\nu=1`.
     """
