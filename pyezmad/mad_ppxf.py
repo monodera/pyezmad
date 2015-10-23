@@ -310,7 +310,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     wmin_fit=4800, wmax_fit=7000.,
                                     dw_edge=100.,
                                     n_thread=12,
-                                    ext_data=1, ext_var
+                                    ext_data=1, ext_var=2,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
                                     is_mask_telluric=True, normalize=False):
