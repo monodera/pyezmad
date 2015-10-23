@@ -76,7 +76,7 @@ class Ppxf:
         return(self.__e_sig_img)
 
 
-def gaussian_filter1d(spec, sig):
+def _gaussian_filter1d(spec, sig):
     """
     Convolve a spectrum by a Gaussian with different sigma for every
     pixel, given by the vector "sigma" with the same size as "spec".
@@ -200,7 +200,9 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
 
 def setup_spectral_library(file_template_list, velscale,
-                           FWHM_inst, FWHM_templ, normalize=False):
+                           FWHM_inst, FWHM_templ,
+                           wmin=None, wmax=None,
+                           normalize=False):
     """Set-up spectral library
 
     Parameters
@@ -216,6 +218,10 @@ def setup_spectral_library(file_template_list, velscale,
         Instrumental spectral resolution, FWHM in angstrom.
     FWHM_templ : float
         Spectral resolution of the templates, FWHM in angstrom.
+    wmin : float, optional
+        Minimum wavelength to consider for templates.
+    wmax : float, optional
+        Maximum wavelength to consider for templates.
     normalize : bool, optional
         Normalize templates when it's ``True``. The default is ``False``.
 
@@ -238,8 +244,20 @@ def setup_spectral_library(file_template_list, velscale,
     ssp = hdu[0].data
     h2 = hdu[0].header
     wtempl = get_wavelength(hdu, ext=0, axis=1)
-    lamRange_temp = np.array([wtempl[0], wtempl[-1]])
-    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp, ssp,
+
+    if wmin is None:
+        wmin = wtempl[0]
+    else:
+        wmin = np.max([wtempl[0], wmin])
+    if wmax is None:
+        wmax = wtempl[-1]
+    else:
+        wmax = np.min([wtempl[-1], wmax])
+
+    idx_lam = np.logical_and(wtempl >= wmin, wtempl <= wmax)
+    lamRange_temp = np.array([wtempl[idx_lam][0], wtempl[idx_lam][-1]])
+    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp,
+                                                   ssp[idx_lam],
                                                    velscale=velscale)
 
     templates = np.empty((sspNew.size, template_list.size))
@@ -261,16 +279,17 @@ def setup_spectral_library(file_template_list, velscale,
 
     for i in range(template_list.size):
         if i % 100 == 0:
-            print("%i/%i templates are processed." % (i, template_list.size))
+            print("....%4i/%4i templates are processed." % (i, template_list.size))
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
         # perform a convolution with wavelength-dependent sigma
-        if np.all(sigma > 0.):
-            ssp = gaussian_filter1d(ssp, sigma)
+        if np.any(sigma > 0.):
+            # print("Convolving to instrumental resolution...")
+            ssp = _gaussian_filter1d(ssp, sigma)
             # ssp = util.gaussian_filter1d(ssp, sigma)
         # if sigma > 0.:  # old version with scipy
         #     ssp = ndimage.gaussian_filter1d(ssp, sigma)
-        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp,
+        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp[idx_lam],
                                                    velscale=velscale)
         if normalize is True:
             norm = np.nanmedian(sspNew)
@@ -278,7 +297,8 @@ def setup_spectral_library(file_template_list, velscale,
 
         templates[:, i] = sspNew
 
-    print("%i/%i templates are processed." % (template_list.size, template_list.size))
+    print("%i/%i templates are processed." %
+          (template_list.size, template_list.size))
 
     return templates, lamRange_temp, logLam_temp
 
@@ -287,7 +307,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     temp_list=None,
                                     vel_init=1000., sigma_init=50.,
                                     dv_mask=200.,
-                                    wmin_fit=4800, wmax_fit=7000., n_thread=12,
+                                    wmin_fit=4800, wmax_fit=7000.,
+                                    dw_edge=100.,
+                                    n_thread=12,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
                                     is_mask_telluric=True, normalize=False):
@@ -324,6 +346,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         Minimum wavelength to run pPXF.
     wmax_fit : float, optional
         Maximum wavelength to run pPXF.
+    dw_edge : float, optional
+        Wavelengths additionally considered for templates.
+        Templates from `wmin_fit-dw_edge` to `wmax_fit+dw_edge`
+        will be considered. The default is 100 A.
     n_thread : int, optional
         Number of processes to be executed in parallel.
     FWHM_inst : array_like, optional
@@ -364,7 +390,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
     print("Preparing templates")
     stars_templates, lamRange_temp, logLam_temp \
-        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem, normalize=normalize)
+        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem,
+                                 wmin=wmin_fit-dw_edge, wmax=wmax_fit+dw_edge,
+                                 normalize=normalize)
     # stars_templates /= np.median(stars_templates)
     # Normalizes stellar templates by a scalar
 
@@ -390,7 +418,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
         for ibin in np.arange(bins_begin, bins_end):
             if (ibin - bins_begin + 1) % 10 == 0:
-                print("%f %% finished [%i:%i] " %
+                print("....%6.3f %% finished [%i:%i] " %
                       ((ibin - bins_begin) * 1. /
                        ((bins_end - bins_begin) * 1.) * 100.,
                        bins_begin, bins_end))
@@ -409,8 +437,8 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                       **ppxf_keydic)
             t_end_each = time.time()
             if not ppxf_keydic['quiet']:
-                print("Time elapsed for a single run %f [seconds]"
-                      % (t_end_each - t_begin_each))
+                print("....Time elapsed for %i-th bin: %.2f [seconds]"
+                      % (ibin, t_end_each - t_begin_each))
 
             pp.star = None
             pp.star_rfft = None
@@ -576,11 +604,3 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
 
 if __name__ == '__main__':
     print("do nothing")
-# ssp_hr_elodie31_kroupa_tracksZ0.0001.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.2M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.0004.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.004.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.008.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.02.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.05.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.0M Oct 22 16:35 ssp_hr_elodie31_kroupa_tracksZ0.1.dat
-# -rw-rw-r--+ 1 monodera astcarol  418 Oct 22 16:35 ssp_hr_elodie31_kroupa_SSPs.dat
