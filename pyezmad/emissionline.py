@@ -89,6 +89,11 @@ class EmissionLine:
 
     def calc_ebv(self, line1=None, line2=None, extcurve='CCM', clip=True):
 
+        if line1 is None:
+            line1 = 'Halpha'
+        if line2 is None:
+            line2 = 'Hbeta'
+
         extname, keyname = search_lines(self.__hdu, [line1, line2])
         f1 = self.__hdu[extname[line1]].data['f_' + line1]
         f2 = self.__hdu[extname[line2]].data['f_' + line2]

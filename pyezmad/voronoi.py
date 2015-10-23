@@ -454,6 +454,7 @@ def subtract_emission_line(voronoi_binspec_file,
     emspec : :py:class:`~numpy.ndarray`
         Reconstruncted emission line spectra.
     """
+    hdu = fits.open(voronoi_binspec_file)
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
 
@@ -490,13 +491,13 @@ def subtract_emission_line(voronoi_binspec_file,
     spec_out = flux - emspec
 
     hdulist = fits.HDUList([
-        fits.PrimaryHDU(header=hdu_em[0].header),
+        fits.PrimaryHDU(header=hdu[0].header),
         fits.ImageHDU(data=spec_out,
-                      header=hdu_em[1].header, name='FLUX'),
+                      header=hdu[1].header, name='FLUX'),
         fits.ImageHDU(data=var,
-                      header=hdu_em[2].header, name='VAR'),
+                      header=hdu[2].header, name='VAR'),
         fits.ImageHDU(data=emspec,
-                      header=hdu_em[1].header, name='EMSPEC')])
+                      header=hdu[1].header, name='EMSPEC')])
 
     return(hdulist, wave, spec_out, var, emspec)
 
