@@ -248,7 +248,7 @@ def create_value_image(segmentation_image, value):
     return(valimg)
 
 
-def read_stacked_spectra(infile):
+def read_stacked_spectra(infile, ext_data=1, ext_var=2):
     """Read Voronoi binned spectra into array.
 
     Parameters
@@ -256,6 +256,10 @@ def read_stacked_spectra(infile):
     infile : str
         Input FITS file to be processed.
         It must have a shape of ``(nbin, nwave)``.
+    ext_data : int or str, optional
+        Data extension
+    ext_var : int or str, optional
+        Variance extenstion
 
     Returns
     -------
@@ -269,7 +273,7 @@ def read_stacked_spectra(infile):
 
     hdu = fits.open(infile)
     wave = get_wavelength(hdu, ext='FLUX', axis=1)
-    return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
+    return(wave, hdu[ext_data].data, np.sqrt(hdu[ext_var].data))
 
 
 def stacking(fcube, ftable, fout):

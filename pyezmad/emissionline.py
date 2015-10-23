@@ -7,6 +7,7 @@ import astropy.io.fits as fits
 
 from .emission_line_fitting import search_lines
 from .extinction import ebv_balmer_decrement
+from .metallicity import compute_metallicity
 from .sfr import sfr_halpha
 from .voronoi import create_value_image
 from .utilities import (error_fraction,
@@ -15,6 +16,9 @@ from .utilities import (error_fraction,
 
 class EmissionLine:
     def __init__(self, emfit=None, segimg=None):
+
+        self.__linelist = read_emission_linelist()
+
         if emfit is not None:
             self.load_data(emfit)
             self.__segimg = segimg
@@ -32,24 +36,40 @@ class EmissionLine:
 
     def make_kinematics_img(self, vc=None, refline='Halpha'):
         extname, keyname = search_lines(self.__hdu, [refline])
-        self.vel = self.__hdu[extname[refline]].data['vel']
-        self.sig = self.__hdu[extname[refline]].data['sig']
-        self.e_vel = self.__hdu[extname[refline]].data['errvel']
-        self.e_sig = self.__hdu[extname[refline]].data['errsig']
+        self.__vel = self.__hdu[extname[refline]].data['vel']
+        self.__sig = self.__hdu[extname[refline]].data['sig']
+        self.__e_vel = self.__hdu[extname[refline]].data['errvel']
+        self.__e_sig = self.__hdu[extname[refline]].data['errsig']
 
         if vc is None:
-            vc = np.nanmedian(self.vel)
+            vc = np.nanmedian(self.__vel)
             warnings.warn(
                 'Set velocity zero point by median(velocity(x,y)): %.2f' % vc)
 
         self.__vel_img = create_value_image(self.__segimg,
-                                            self.vel) - vc
+                                            self.__vel) - vc
         self.__sig_img = create_value_image(self.__segimg,
-                                            self.sig)
+                                            self.__sig)
         self.__e_vel_img = create_value_image(self.__segimg,
-                                              self.e_vel)
+                                              self.__e_vel)
         self.__e_sig_img = create_value_image(self.__segimg,
-                                              self.e_sig)
+                                              self.__e_sig)
+
+    @property
+    def vel(self):
+        return(self.__vel)
+
+    @property
+    def sig(self):
+        return(self.__sig)
+
+    @property
+    def e_vel(self):
+        return(self.__e_vel)
+
+    @property
+    def e_sig(self):
+        return(self.__e_sig)
 
     @property
     def vel_img(self):
@@ -116,8 +136,7 @@ class EmissionLine:
                     "Sorry, an input line other than Halpha is not supposed."))
 
         extname, keyname = search_lines(self.__hdu, [line])
-        linelist = read_emission_linelist()
-        wave1 = linelist[line]
+        wave1 = self.__linelist[line]
 
         f_obs = self.__hdu[extname[line]].data['f_' + line] * 1e-20
         ef_obs = self.__hdu[extname[line]].data['ef_' + line] * 1e-20
@@ -174,3 +193,48 @@ class EmissionLine:
     @property
     def e_lsfr_density_img(self):
         return(self.__e_lsfr_density_img)
+
+    def calc_metallicity(self, calib=None, unred=False,
+                         ebv=None, e_ebv=None,
+                         extcurve='CCM'):
+
+        if ebv is None:
+            ebv = self.__ebv
+        if e_ebv is None:
+            e_ebv = self.__e_ebv
+
+        extname, keyname = search_lines(self.__hdu, self.__linelist)
+
+        fdic = dict()
+        efdic = dict()
+
+        for k in self.__linelist.keys():
+            if k in keyname:
+                fdic[k] = self.__hdu[extname[k]].data['f_' + k]
+                efdic[k] = self.__hdu[extname[k]].data['ef_' + k]
+
+        self.__oh12, self.__e_oh12 \
+            = compute_metallicity(fdic, efdic=efdic, calib=calib,
+                                  unred=unred, ebv=ebv, e_ebv=e_ebv,
+                                  extcurve=extcurve)
+
+        self.__oh12_img = create_value_image(self.__segimg,
+                                             self.__oh12)
+        self.__e_oh12_img = create_value_image(self.__segimg,
+                                               self.__e_oh12)
+
+    @property
+    def oh12(self):
+        return(self.__oh12)
+
+    @property
+    def e_oh12(self):
+        return(self.__e_oh12)
+
+    @property
+    def oh12_img(self):
+        return(self.__oh12_img)
+
+    @property
+    def e_oh12_img(self):
+        return(self.__e_oh12_img)

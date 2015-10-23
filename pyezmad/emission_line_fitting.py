@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import time
 import os.path
 import numpy as np
 
@@ -126,19 +127,22 @@ def gaussian(x, flux, vel, sig, lam):
 
     """
 
-    lcen = lam * (1. + vel / c.to('km/s').value)
-    sig_inst = muse_fwhm(lcen) / sigma2fwhm
-    sig_tot = np.sqrt(sig**2 + sig_inst**2)
+    lcen = lam * (1. + vel / c.to('km/s').value)  # angstrom
+    # km/s
+    sig_inst = c.to('km/s').value * (muse_fwhm(lcen) / sigma2fwhm) / lcen
+    sig_tot = np.sqrt(sig**2 + sig_inst**2)  # km/s
     # lsig = lcen * sig / c.to('km/s').value
-    lsig = lcen * sig_tot / c.to('km/s').value
-    g = flux / np.sqrt(2. * np.pi) / lsig * np.exp(-(x - lcen)**2 / lsig**2)
+    lsig = lcen * sig_tot / c.to('km/s').value  # angstrom
+
+    g = (flux / np.sqrt(2. * np.pi) / lsig) \
+        * np.exp(-(x - lcen)**2 / 2. / lsig**2)
 
     return(g)
 
 
 def fit_single_spec(wave, flux, var, vel_star, linelist_name,
                     dwfit=100., is_checkeach=False,
-                    instrument=None, linelist=None):
+                    instrument=None, linelist=None, verbose=True):
     """Fit Gaussian(s) to a single spectrum.
 
     Parameters
@@ -237,7 +241,7 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
             model += models[lname]
 
-        res_fit = model.fit(y, pars, x=x, weights=w)
+        res_fit = model.fit(y, pars, x=x, weights=w, verbose=verbose)
 
         print(res_fit.fit_report(min_correl=0.5))
 
@@ -281,7 +285,8 @@ def emission_line_fitting(voronoi_binspec_file,
                           linelist_name,
                           is_checkeach=False,
                           instrument='MUSE',
-                          master_linelist=None):
+                          master_linelist=None,
+                          verbose=True):
     """Fit emission lines to (continuum-subtracted) spectra
     with Voronoi output format.
 
@@ -311,6 +316,8 @@ def emission_line_fitting(voronoi_binspec_file,
         By default, the list is loaded from
         a file in the ``database`` directory
         of the ``pyezmad`` distribution.
+    verbose : bool, optional
+        Print more details.
 
     Returns
     -------
@@ -318,6 +325,8 @@ def emission_line_fitting(voronoi_binspec_file,
         Output table as aHDUList object. It's very messy format...
         Each HDU contains the fitting result for each emission line group.
     """
+
+    t_begin = time.time()
 
     if instrument != "MUSE":
         raise(ValueError("Only MUSE is supported as instrument."))
@@ -335,6 +344,14 @@ def emission_line_fitting(voronoi_binspec_file,
 
     # It can be parallelized here.  Any volunteers?
     for i in xrange(flux.shape[0]):
+
+        if i % 100 == 0:
+            t_mid = time.time()
+            print("# \n" +
+                  "# %i-th spectra is going to be fit\n" % (i) +
+                  "%f minites elapsed for the emission line fitting."
+                  % (t_mid - t_begin))
+
         res_fitting[i] = fit_single_spec(wave,
                                          flux[i, :],
                                          var[i, :],
@@ -342,7 +359,8 @@ def emission_line_fitting(voronoi_binspec_file,
                                          linelist_name,
                                          is_checkeach=is_checkeach,
                                          instrument=instrument,
-                                         linelist=master_linelist)
+                                         linelist=master_linelist,
+                                         verbose=verbose)
 
     prihdu = fits.PrimaryHDU()
     hdu_arr = []

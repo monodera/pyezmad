@@ -310,6 +310,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     wmin_fit=4800, wmax_fit=7000.,
                                     dw_edge=100.,
                                     n_thread=12,
+                                    ext_data=1, ext_var
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
                                     is_mask_telluric=True, normalize=False):
@@ -352,6 +353,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         will be considered. The default is 100 A.
     n_thread : int, optional
         Number of processes to be executed in parallel.
+    ext_data : int or str, optional
+        Data extension.
+    ext_variance : int or str, optional
+        Variance extension.
     FWHM_inst : array_like, optional
         Instrumental resolution in angstrom in FWHM.
         If it's ``None``, the MUSE resolution will be computed
@@ -372,7 +377,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     if not os.path.exists(npy_dir):
         os.mkdir(npy_dir)
 
-    wave0, galaxy0, noise0 = read_stacked_spectra(infile)
+    wave0, galaxy0, noise0 = read_stacked_spectra(infile,
+                                                  ext_data=ext_data,
+                                                  ext_var=ext_var)
     nbins = galaxy0.shape[0]
 
     # ispec = 0 # absorption dominated spectra

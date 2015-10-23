@@ -11,6 +11,55 @@ from astroquery.irsa_dust import IrsaDust
 from .utilities import get_wavelength
 
 
+def correct_dust_binspec(w, spec, ebv, extcurve='CCM'):
+    """Correct dust extinction for binned spectra.
+
+    TODO: Need to handle error. There are more room for improvement.
+
+    Parameters
+    ----------
+    w : :py:class:`~numpy.ndarray`
+        Wavelength in angstrom
+    spec : :py:class:`~numpy.ndarray`
+        Input spectra. Now, the 2nd dimension must be wavelength.
+    ebv : :py:class:`~numpy.ndarray`
+        E(B-V)
+    extcuve : str, optional
+        Extinction curve. "CCM" or "Calzetti".
+
+    Returns
+    -------
+    spec_unred : :py:class:`~numpy.ndarray`
+        Extinction corrected spectra with the same shape as the input.
+    """
+
+    alam_av, rv = get_alam_av(w, extcurve=extcurve)
+
+    expo_corr = 0.4 * ebv * alam_av * rv
+
+    expo_corr_tile = np.tile(expo_corr, spec.shape[0], 1)
+
+    ext_factor = np.power(10., expo_corr_tile)
+
+    spec_unred = spec * ext_factor
+
+    return(spec_unred)
+
+
+def get_alam_av(wave, extcurve=None):
+
+    if extcurve in {'CCM', 'ccm'}:
+        alam_av1, rv = extinction_ccm89(wave, ret_rv=True)
+    elif extcurve in {'calzetti', 'Calzetti', 'Calz', 'calz'}:
+        alam_av1, rv = extinction_calz(wave, ret_rv=True)
+    elif extcurve is None:
+        alam_av1, rv = 0., 0.
+    else:
+        raise(ValueError("%s curve is not yet implemented." % extcurve))
+
+    return(alam_av1, rv)
+
+
 def ebv_balmer_decrement(r_obs, err=None,
                          line1='Halpha', line2='Hbeta',
                          extcurve=None, clip=True):

@@ -30,6 +30,19 @@ def error_fraction(x1, x2, ex1, ex2):
     return(err)
 
 
+def error_log10_fraction(x1, x2, ex1, ex2):
+    """Compute error of log10(x1/x2)
+    when errors of x1 and x2 are given.
+    """
+
+    # err2 = (ex1 / x2)**2 + (x1 * ex2 / x2**2)**2
+    # err = np.sqrt(err2)
+
+    err = error_fraction(x1, x2, ex1, ex2) / (x1 / x2) / np.log(10.)
+
+    return(err)
+
+
 def read_emission_linelist(wavelength='air'):
     path_to_database = os.path.join(pyezmad.__path__[0],
                                     'database/emission_lines.dat')
