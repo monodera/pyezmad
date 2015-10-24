@@ -324,15 +324,6 @@ def stacking(fcube, ftable, fout):
                                   for iy, ix in zip(ybin, xbin)])
         stack_var_bin = np.nansum(stack_var_bin, axis=0)
 
-        # subcube_data_test = np.zeros(nwave)
-        # subcube_var_test = np.zeros(nwave)
-        # for j in xrange(tb_xy2bin['bin'][idx].size):
-        #     subcube_data_test += cube.data[:,tb_xy2bin['y'][idx][j],tb_xy2bin['x'][idx][j]]
-        #     subcube_var_test += cube.var[:,tb_xy2bin['y'][idx][j],tb_xy2bin['x'][idx][j]]
-        # ratio_data = subcube_data_test/stack_data_bin
-        # ratio_var = subcube_var_test/stack_var_bin
-        # print(i, tb_xy2bin['bin'][idx].size, np.median(ratio_data), np.median(ratio_var))
-
         stack_data_bin /= tb_xy2bin['bin'][idx].size
         stack_var_bin /= tb_xy2bin['bin'][idx].size**2
 

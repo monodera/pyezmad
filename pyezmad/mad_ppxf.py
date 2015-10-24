@@ -75,6 +75,9 @@ class Ppxf:
     def e_sig_img(self):
         return(self.__e_sig_img)
 
+    # def calc_stellarpop(self, template='pegase'):
+    #     self.__lage, self.__metal = compute_stellar_population()
+
 
 def _gaussian_filter1d(spec, sig):
     """
