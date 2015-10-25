@@ -452,20 +452,19 @@ def emission_line_fitting(voronoi_binspec_file,
 
         cols.append(
             fits.Column(
-                name=key, format='I',
+                name='nfev', format='I',
                 array=np.array([res_fitting[i][j]['nfev']
                                 for i in xrange(flux.shape[0])])))
         cols.append(
             fits.Column(
-                name=key, format='L',
+                name='success', format='L',
                 array=np.array([res_fitting[i][j]['success']
                                 for i in xrange(flux.shape[0])])))
         cols.append(
             fits.Column(
-                name=key, format='I',
+                name='ier', format='I',
                 array=np.array([res_fitting[i][j]['ier']
                                 for i in xrange(flux.shape[0])])))
-
 
         tbhdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols),
                                               name='GROUP%i' % j)
