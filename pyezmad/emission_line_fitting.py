@@ -458,7 +458,7 @@ def emission_line_fitting(voronoi_binspec_file,
         cols.append(
             fits.Column(
                 name=key, format='L',
-                array=np.array([res_fitting[i][j]['sccucess']
+                array=np.array([res_fitting[i][j]['success']
                                 for i in xrange(flux.shape[0])])))
         cols.append(
             fits.Column(
