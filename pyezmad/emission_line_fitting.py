@@ -443,13 +443,29 @@ def emission_line_fitting(voronoi_binspec_file,
         for key in ['vel', 'sig', 'errvel', 'errsig',
                     'cont_a', 'cont_b', 'cont_c',
                     'cont_intercept', 'cont_slope',
-                    'redchi', 'chisqr',
-                    'nfev', 'success', 'ier', 'lmdif_message']:
+                    'redchi', 'chisqr']:
             cols.append(
                 fits.Column(
                     name=key, format='D',
                     array=np.array([res_fitting[i][j][key]
                                     for i in xrange(flux.shape[0])])))
+
+        cols.append(
+            fits.Column(
+                name=key, format='I',
+                array=np.array([res_fitting[i][j]['nfev']
+                                for i in xrange(flux.shape[0])])))
+        cols.append(
+            fits.Column(
+                name=key, format='L',
+                array=np.array([res_fitting[i][j]['sccucess']
+                                for i in xrange(flux.shape[0])])))
+        cols.append(
+            fits.Column(
+                name=key, format='I',
+                array=np.array([res_fitting[i][j]['ier']
+                                for i in xrange(flux.shape[0])])))
+
 
         tbhdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols),
                                               name='GROUP%i' % j)

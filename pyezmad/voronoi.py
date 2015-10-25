@@ -451,6 +451,8 @@ def subtract_emission_line(voronoi_binspec_file,
 
     hdu_em = fits.open(emission_line_file)
 
+    # cont_model = hdu_em[0].header['MAD EMFIT CONT_MODEL']
+
     nbins = flux.shape[0]
 
     master_linelist = read_emission_linelist()
