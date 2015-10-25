@@ -592,6 +592,7 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
     ax = fig.add_subplot(1, 1, 1)
     ax.plot(pp.lam, pp.galaxy, '-', color='k')
     ax.plot(pp.lam, pp.bestfit, '-', color='tomato', lw=2, alpha=0.7)
+    ax.fill_between(pp.lam, pp.noise, y2=0, color='dodgerblue', alpha=0.7)
     # ax.plot(pp.lam, residual, '-', color='k')
 
     residual_fit = residual.copy()

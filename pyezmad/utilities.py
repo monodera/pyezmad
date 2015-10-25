@@ -17,7 +17,8 @@ import matplotlib.cm as cm
 import pyezmad
 
 # maybe there is a better way to set this number...
-sigma2fwhm = 2.3548200
+# sigma2fwhm = 2.3548200
+sigma2fwhm = 2. * np.sqrt(2. * np.log(2.))
 
 
 def error_fraction(x1, x2, ex1, ex2):
