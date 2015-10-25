@@ -441,7 +441,8 @@ def emission_line_fitting(voronoi_binspec_file,
             cols.append(col_err)
 
         for key in ['vel', 'sig', 'errvel', 'errsig',
-                    'cont_a', 'cont_b', 'cont_c', 'cont_m',
+                    'cont_a', 'cont_b', 'cont_c',
+                    'cont_intercept', 'cont_slope',
                     'redchi', 'chisqr',
                     'nfev', 'success', 'ier', 'lmdif_message']:
             cols.append(
