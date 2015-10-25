@@ -13,6 +13,7 @@ cmap_dict = {'white': cm.Greys_r,
              'sfr': cm.YlOrBr,
              'vel': cm.Spectral,
              'sigma': cm.YlOrRd,
+             'sig': cm.YlOrRd,
              'age_ha': cm.Oranges,
              'ew': cm.YlGn_r,
              'mass': cm.Purples,
@@ -26,6 +27,7 @@ ebv = _cmap_ebv
 sfr = cm.YlOrBr
 vel = cm.Spectral
 sigma = cm.YlOrRd
+sig = sigma
 age_ha = cm.Oranges
 ew = cm.YlGn_r
 mass = cm.Purples
