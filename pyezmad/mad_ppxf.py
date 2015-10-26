@@ -338,7 +338,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     ext_data=1, ext_var=2,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
-                                    is_mask_telluric=True):  #, normalize=False):
+                                    is_mask_telluric=True):
     """Run pPXF for all Voronoi binned spectra made with
     :py:meth:`pyezmad.voronoi.stack`.
 
@@ -417,15 +417,11 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         = util.log_rebin(lamRange_galaxy, galaxy0[0, mask])
 
     # ------------------- Setup templates -----------------------
-
     print("Preparing templates")
     stars_templates, lamRange_temp, logLam_temp, norm_templ \
         = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem,
                                  wmin=wmin_fit - dw_edge,
                                  wmax=wmax_fit + dw_edge)
-    # stars_templates /= np.median(stars_templates)
-    # Normalizes stellar templates by a scalar
-
     # -----------------------------------------------------------
 
     dv = (np.log(lamRange_temp[0]) - np.log(wave[0])) * c.to('km/s').value
@@ -478,6 +474,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                           % (ibin, t_end_each - t_begin_each))
 
                 pp.weights *= (norm_galaxy * norm_templ)
+                pp.bestfit *= norm_galaxy
+                pp.galaxy *= norm_galaxy
+                pp.noise *= norm_galaxy
 
                 pp.star = None
                 pp.star_rfft = None
@@ -486,7 +485,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                 np.save(pp_out, np.array([pp], dtype=np.object))
             except:
                 print("Unexpected error:", sys.exc_info())
-                print("There is an error in Bin %i" % ibin)
+                print("pPXF failed at bin %i" % ibin)
                 print("An array containing None is saved as %s" % pp_out)
                 np.save(pp_out, np.array([None], dtype=np.object))
 
@@ -498,7 +497,15 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     bins_begin = np.arange(ispec_start, ispec_end, nobj_per_proc)
     bins_end = bins_begin + nobj_per_proc
     bins_end[-1] = ispec_end
-    print(bins_begin, bins_end)
+
+    for b, e in zip(bins_begin, bins_end):
+        print("pPXF will run on %n threads in parallel." % n_thread)
+        print("Bins are split as follows.")
+        print("=============")
+        print(" Start    End")
+        print("-------------")
+        print("%6i %6i" % (b, e))
+        print("-------------")
 
     processes = [Process(target=run_ppxf_multiprocess,
                          args=(bins_begin[i], bins_end[i]))
