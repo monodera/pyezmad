@@ -24,16 +24,24 @@ import ppxf_util as util
 from .voronoi import read_stacked_spectra, create_value_image
 from .utilities import get_wavelength, read_emission_linelist,\
     muse_fwhm, sigma2fwhm
+# from .analysis_binned_spectra import BinSpecAnalysis
 
 
-class Ppxf:
-    def __init__(self, ppxf=None, segimg=None):
+class Ppxf():
+    def __init__(self, ppxf=None, segimg=None, mask=None, mask_img=None):
         if ppxf is not None:
-            self.load_data(ppxf)
             self.__segimg = segimg
+            self.__mask = mask
+            self.__mask_img = mask_img
+            self.load_data(ppxf)
 
     def load_data(self, ppxf):
         self.__tb = Table.read(ppxf)
+        if self.__mask is not None:
+            self.__tb['vel'][self.__mask] = np.nan
+            self.__tb['errvel'][self.__mask] = np.nan
+            self.__tb['sig'][self.__mask] = np.nan
+            self.__tb['errsig'][self.__mask] = np.nan
 
     @property
     def tb(self):
@@ -42,6 +50,14 @@ class Ppxf:
     @property
     def segimg(self):
         return(self.__segimg)
+
+    @property
+    def mask(self):
+        return(self.__mask)
+
+    @property
+    def mask_img(self):
+        return(self.__mask_img)
 
     # create various maps
     def make_kinematics_img(self, vc=None):
@@ -58,6 +74,12 @@ class Ppxf:
                                               self.__tb['errvel'])
         self.__e_sig_img = create_value_image(self.__segimg,
                                               self.__tb['errsig'])
+
+        if self.__mask_img is not None:
+            self.__vel_img[self.__mask_img] = np.nan
+            self.__e_vel_img[self.__mask_img] = np.nan
+            self.__sig_img[self.__mask_img] = np.nan
+            self.__e_sig_img[self.__mask_img] = np.nan
 
     @property
     def vel_img(self):

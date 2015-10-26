@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # import warnings
-# import numpy as np
+import numpy as np
 import astropy.io.fits as fits
 # import astropy.units as u
 # from astropy.table import Table
@@ -40,16 +40,24 @@ class BinSpecAnalysis:
         if segimg is not None:
             self.read_segimg(segimg)
 
-        if ppxf is not None:
-            self.read_ppxf(ppxf)
-
-        if emfit is not None:
-            self.read_emfit(emfit)
+        # create a mask to reject bins with too many pixels (>max_npix)
+        self.__mask = np.zeros_like(self.voronoi.bininfo['npix'],
+                                    dtype=np.bool)
+        self.__mask_img = np.zeros_like(self.__segimg, dtype=np.bool)
 
         if (voronoi_xy is not None) and (segimg is not None):
             self.__npix_img = create_value_image(self.__segimg,
                                                  self.voronoi.bininfo['npix'])
 
+            self.__mask[np.where(self.voronoi.bininfo['npix'] >
+                                 max_npix)] = True
+            self.__mask_img[np.where(self.__npix_img > max_npix)] = True
+
+        if ppxf is not None:
+            self.read_ppxf(ppxf)
+
+        if emfit is not None:
+            self.read_emfit(emfit)
 
     # data readers
     def read_binspec(self, binspec):
@@ -66,10 +74,11 @@ class BinSpecAnalysis:
         self.__segimg = self.hdu_segimg[0].data
 
     def read_ppxf(self, ppxf):
-        self.ppxf = Ppxf(ppxf, self.segimg)
+        self.ppxf = Ppxf(ppxf, self.segimg, self.__mask, self.__mask_img)
 
     def read_emfit(self, emfit):
-        self.em = EmissionLine(emfit, self.segimg)
+        self.em = EmissionLine(emfit, self.segimg,
+                               self.__mask, self.__mask_img)
 
     @property
     def segimg(self):

@@ -15,13 +15,16 @@ from .utilities import (error_fraction,
 
 
 class EmissionLine:
-    def __init__(self, emfit=None, segimg=None):
+    def __init__(self, emfit=None, segimg=None, mask=None, mask_img=None):
 
         self.__linelist = read_emission_linelist()
 
         if emfit is not None:
-            self.load_data(emfit)
             self.__segimg = segimg
+            self.__mask = mask
+            self.__mask_img = mask_img
+
+            self.load_data(emfit)
 
     def load_data(self, emfit):
         self.__hdu = fits.open(emfit)
@@ -54,6 +57,17 @@ class EmissionLine:
                                               self.__e_vel)
         self.__e_sig_img = create_value_image(self.__segimg,
                                               self.__e_sig)
+
+        if self.__mask is not None:
+            self.__vel[self.__mask] = np.nan
+            self.__e_vel[self.__mask] = np.nan
+            self.__sig[self.__mask] = np.nan
+            self.__e_sig[self.__mask] = np.nan
+        if self.__mask_img is not None:
+            self.__vel_img[self.__mask_img] = np.nan
+            self.__e_vel_img[self.__mask_img] = np.nan
+            self.__sig_img[self.__mask_img] = np.nan
+            self.__e_sig_img[self.__mask_img] = np.nan
 
     @property
     def vel(self):
@@ -113,6 +127,13 @@ class EmissionLine:
         self.__ebv_img = create_value_image(self.__segimg, self.__ebv)
         self.__e_ebv_img = create_value_image(self.__segimg, self.__e_ebv)
 
+        if self.__mask is not None:
+            self.__ebv[self.__mask] = np.nan
+            self.__e_ebv[self.__mask] = np.nan
+        if self.__mask_img is not None:
+            self.__ebv_img[self.__mask_img] = np.nan
+            self.__e_ebv_img[self.__mask_img] = np.nan
+
     @property
     def ebv(self):
         return(self.__ebv)
@@ -166,6 +187,17 @@ class EmissionLine:
                                                      self.__lsfr_density)
         self.__e_lsfr_density_img = create_value_image(self.__segimg,
                                                        self.__e_lsfr_density)
+
+        if self.__mask is not None:
+            self.__sfr_density[self.__mask] = np.nan
+            self.__lsfr_density[self.__mask] = np.nan
+            self.__e_sfr_density[self.__mask] = np.nan
+            self.__e_lsfr_density[self.__mask] = np.nan
+        if self.__mask_img is not None:
+            self.__sfr_density_img[self.__mask_img] = np.nan
+            self.__lsfr_density_img[self.__mask_img] = np.nan
+            self.__e_sfr_density_img[self.__mask_img] = np.nan
+            self.__e_lsfr_density_img[self.__mask_img] = np.nan
 
     @property
     def sfr_density(self):
@@ -227,6 +259,13 @@ class EmissionLine:
                                              self.__oh12)
         self.__e_oh12_img = create_value_image(self.__segimg,
                                                self.__e_oh12)
+
+        if self.__mask is not None:
+            self.__oh12[self.__mask] = np.nan
+            self.__e_oh12[self.__mask] = np.nan
+        if self.__mask_img is not None:
+            self.__oh12_img[self.__mask_img] = np.nan
+            self.__e_oh12_img[self.__mask_img] = np.nan
 
     @property
     def oh12(self):
