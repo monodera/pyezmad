@@ -498,14 +498,14 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     bins_end = bins_begin + nobj_per_proc
     bins_end[-1] = ispec_end
 
+    print("pPXF will run on %i threads in parallel." % n_thread)
+    print("Bins are split as follows.")
+    print("=============")
+    print(" Start    End")
+    print("-------------")
     for b, e in zip(bins_begin, bins_end):
-        print("pPXF will run on %i threads in parallel." % n_thread)
-        print("Bins are split as follows.")
-        print("=============")
-        print(" Start    End")
-        print("-------------")
         print("%6i %6i" % (b, e))
-        print("-------------")
+    print("-------------")
 
     processes = [Process(target=run_ppxf_multiprocess,
                          args=(bins_begin[i], bins_end[i]))

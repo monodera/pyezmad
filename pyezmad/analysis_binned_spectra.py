@@ -7,7 +7,8 @@ import astropy.io.fits as fits
 # import astropy.units as u
 # from astropy.table import Table
 
-from .utilities import get_wavelength
+from .utilities import (get_wavelength,
+                        map_pixel_major_axis)
 #                         error_fraction,
 #                         read_emission_linelist)
 # from .voronoi import Voronoi, create_value_image
@@ -49,9 +50,10 @@ class BinSpecAnalysis:
             self.__npix_img = create_value_image(self.__segimg,
                                                  self.voronoi.bininfo['npix'])
 
-            self.__mask[np.where(self.voronoi.bininfo['npix'] >
-                                 max_npix)] = True
-            self.__mask_img[np.where(self.__npix_img > max_npix)] = True
+            if max_npix is not None:
+                self.__mask[np.where(self.voronoi.bininfo['npix'] >
+                                     max_npix)] = True
+                self.__mask_img[np.where(self.__npix_img > max_npix)] = True
 
         if ppxf is not None:
             self.read_ppxf(ppxf)
@@ -83,3 +85,8 @@ class BinSpecAnalysis:
     @property
     def segimg(self):
         return(self.__segimg)
+
+    def calc_elliptical_radius(self, xc, yc, pa, ellip):
+        self.__a_ell = map_pixel_major_axis(self.voronoi.bininfo['xcen'],
+                                            self.voronoi.bininfp['ycen'],
+                                            xc, yc, pa, ellip)

@@ -456,6 +456,36 @@ def muse_fwhm(w, deg=2):
     return(polynomial.polyval(ww, coeff))
 
 
+def map_pixel_major_axis(x, y, xc, yc, theta, ellip):
+    """Convert (x, y) to elliptical radius
+    (equivalent to the semi-major axis length).
+
+    Parameters
+    ----------
+    x, y : array_like
+        Pixel coodinates to be converted.
+    xc, yc : int or float
+        Pixel coordinates of the central pixel.
+    theta : float
+        Position angle in degrees measured counter-clockwise
+        from the north axis.
+    ellip : float
+        Ellipticity defined as :math:`1-b/a` where
+        :math:`a` and :math:`b` are major and minor axis length, respectively.
+    """
+
+    # radiant = theta * np.pi / 180.
+    radiant = (theta * u.deg).to('radian')
+    axis_ratio = (1. - ellip)
+    first_term = (x - xc) * np.cos(radiant) + (y - yc) * np.sin(radiant)
+    second_term = (x - xc) * np.sin(radiant) + (y - yc) * np.cos(radiant)
+
+    rad_major_square = axis_ratio**2 * first_term**2 + second_term**2
+    rad_major = np.sqrt(rad_major_square)
+
+    return(rad_major)
+
+
 if __name__ == '__main__':
 
     print('do nothing')
