@@ -16,3 +16,5 @@ __version__ = '0.1.20'
 
 
 from .analysis_binned_spectra import BinSpecAnalysis
+
+# import .cmap as cmap

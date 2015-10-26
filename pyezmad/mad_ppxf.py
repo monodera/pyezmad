@@ -25,6 +25,7 @@ from .voronoi import read_stacked_spectra, create_value_image
 from .utilities import get_wavelength, read_emission_linelist,\
     muse_fwhm, sigma2fwhm
 # from .analysis_binned_spectra import BinSpecAnalysis
+from .stellar_population import compute_ppxf_stellar_population
 
 
 class Ppxf():
@@ -97,8 +98,72 @@ class Ppxf():
     def e_sig_img(self):
         return(self.__e_sig_img)
 
-    # def calc_stellarpop(self, template='pegase'):
-    #     self.__lage, self.__metal = compute_stellar_population()
+    def calc_stellarpop(self, distance, pp_dir, pp_prefix, parfile=None):
+        if parfile is None:
+            raise(
+                ValueError(
+                    "A file listing log Age/Gyr, [Z/H], "
+                    "and stellar mass must be provided."))
+
+        self.__lage, self.__lmetal, self.__smd, self.__lsmd \
+            = compute_ppxf_stellar_population(self.__tb['vel'].size,
+                                              distance,
+                                              pp_dir,
+                                              pp_prefix,
+                                              parfile)
+
+        self.__lage_img = create_value_image(self.__segimg,
+                                             self.__lage)
+        self.__lmetal_img = create_value_image(self.__segimg,
+                                               self.__lmetal)
+        self.__smd_img = create_value_image(self.__segimg,
+                                            self.__smd)
+        self.__lsmd_img = create_value_image(self.__segimg,
+                                             self.__lsmd)
+
+        if self.__mask is not None:
+            self.__lage[self.__mask] = np.nan
+            self.__lmetal[self.__mask] = np.nan
+            self.__smd[self.__mask] = np.nan
+            self.__lsmd[self.__mask] = np.nan
+
+        if self.__mask_img is not None:
+            self.__lage_img[self.__mask_img] = np.nan
+            self.__lmetal_img[self.__mask_img] = np.nan
+            self.__smd_img[self.__mask_img] = np.nan
+            self.__lsmd_img[self.__mask_img] = np.nan
+
+    @property
+    def lage(self):
+        return(self.__lage)
+
+    @property
+    def lmetal(self):
+        return(self.__lmetal)
+
+    @property
+    def smd(self):
+        return(self.__smd)
+
+    @property
+    def lsmd(self):
+        return(self.__lsmd)
+
+    @property
+    def lage_img(self):
+        return(self.__lage_img)
+
+    @property
+    def lmetal_img(self):
+        return(self.__lmetal_img)
+
+    @property
+    def smd_img(self):
+        return(self.__smd_img)
+
+    @property
+    def lsmd_img(self):
+        return(self.__lsmd_img)
 
 
 def _gaussian_filter1d(spec, sig):

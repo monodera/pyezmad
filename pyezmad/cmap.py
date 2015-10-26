@@ -6,6 +6,8 @@ import seaborn.apionly as sns
 
 _cmap_ebv = sns.cubehelix_palette(light=1, as_cmap=True)
 
+_cmap_mass = sns.cubehelix_palette(start=2.5, as_cmap=True)
+
 cmap_dict = {'white': cm.Greys_r,
              'npix': cm.Greys_r,
              'oh12': cm.YlGn,
@@ -16,7 +18,8 @@ cmap_dict = {'white': cm.Greys_r,
              'sig': cm.YlOrRd,
              'age_ha': cm.Oranges,
              'ew': cm.YlGn_r,
-             'mass': cm.Purples,
+             # 'mass': cm.Purples,
+             'mass': _cmap_mass,
              'age_star': cm.Oranges,
              'metal_star': cm.PuBu}
 
@@ -30,7 +33,8 @@ sigma = cm.YlOrRd
 sig = sigma
 age_ha = cm.Oranges
 ew = cm.YlGn_r
-mass = cm.Purples
+# mass = cm.Purples
+mass = _cmap_mass
 age_star = cm.Oranges
 metal_star = cm.PuBu
 

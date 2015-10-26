@@ -456,7 +456,7 @@ def muse_fwhm(w, deg=2):
     return(polynomial.polyval(ww, coeff))
 
 
-def map_pixel_major_axis(x, y, xc, yc, theta, ellip):
+def map_pixel_major_axis(x, y, xc, yc, theta=0., ellip=0.):
     """Convert (x, y) to elliptical radius
     (equivalent to the semi-major axis length).
 
@@ -468,22 +468,33 @@ def map_pixel_major_axis(x, y, xc, yc, theta, ellip):
         Pixel coordinates of the central pixel.
     theta : float
         Position angle in degrees measured counter-clockwise
-        from the north axis.
+        from the north (or Y) axis.
     ellip : float
         Ellipticity defined as :math:`1-b/a` where
         :math:`a` and :math:`b` are major and minor axis length, respectively.
     """
 
-    # radiant = theta * np.pi / 180.
+    raise(Exception("Not yet implemented!"))
+
+    if isinstance(x, float) or isinstance(x, int):
+        x = np.array([x], dtype=np.float)
+    if isinstance(y, float) or isinstance(y, int):
+        y = np.array([y], dtype=np.float)
+
     radiant = (theta * u.deg).to('radian')
     axis_ratio = (1. - ellip)
-    first_term = (x - xc) * np.cos(radiant) + (y - yc) * np.sin(radiant)
+
+    first_term = (x - xc) * np.cos(radiant) - (y - yc) * np.sin(radiant)
     second_term = (x - xc) * np.sin(radiant) + (y - yc) * np.cos(radiant)
 
-    rad_major_square = axis_ratio**2 * first_term**2 + second_term**2
+    # first_term = (x - xc) * np.sin(radiant) - (y - yc) * np.cos(radiant)
+    # second_term = (x - xc) * np.cos(radiant) + (y - yc) * np.sin(radiant)
+
+    # rad_major_square = axis_ratio**2 * first_term**2 + second_term**2
+    rad_major_square = (first_term*axis_ratio)**2 + (second_term)**2
     rad_major = np.sqrt(rad_major_square)
 
-    return(rad_major)
+    return(rad_major.value)
 
 
 if __name__ == '__main__':
