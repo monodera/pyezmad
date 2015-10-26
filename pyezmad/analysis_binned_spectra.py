@@ -17,7 +17,7 @@ from .utilities import get_wavelength
 
 from .emissionline import EmissionLine
 from .mad_ppxf import Ppxf
-from .voronoi import Voronoi
+from .voronoi import Voronoi, create_value_image
 
 
 class BinSpecAnalysis:
@@ -28,7 +28,8 @@ class BinSpecAnalysis:
                  voronoi_bininfo=None,
                  segimg=None,
                  ppxf=None,
-                 emfit=None,):
+                 emfit=None,
+                 max_npix=None):
 
         if binspec is not None:
             self.read_binspec(binspec)
@@ -44,6 +45,11 @@ class BinSpecAnalysis:
 
         if emfit is not None:
             self.read_emfit(emfit)
+
+        if (voronoi_xy is not None) and (segimg is not None):
+            self.__npix_img = create_value_image(self.__segimg,
+                                                 self.voronoi.bininfo['npix'])
+
 
     # data readers
     def read_binspec(self, binspec):
