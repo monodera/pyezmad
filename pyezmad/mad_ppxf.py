@@ -226,8 +226,7 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
 def setup_spectral_library(file_template_list, velscale,
                            FWHM_inst, FWHM_templ,
-                           wmin=None, wmax=None,
-                           normalize=False):
+                           wmin=None, wmax=None):
     """Set-up spectral library
 
     Parameters
@@ -247,8 +246,6 @@ def setup_spectral_library(file_template_list, velscale,
         Minimum wavelength to consider for templates.
     wmax : float, optional
         Maximum wavelength to consider for templates.
-    normalize : bool, optional
-        Normalize templates when it's ``True``. The default is ``False``.
 
     Returns
     -------
@@ -302,6 +299,8 @@ def setup_spectral_library(file_template_list, velscale,
     # Sigma difference in pixels
     sigma = FWHM_diff / sigma2fwhm / h2['CDELT1']
 
+    norm_templ = np.empty(template_list.size)
+
     for i in range(template_list.size):
         if i % 100 == 0:
             print("....%4i/%4i templates are processed." % (i, template_list.size))
@@ -316,16 +315,17 @@ def setup_spectral_library(file_template_list, velscale,
         #     ssp = ndimage.gaussian_filter1d(ssp, sigma)
         sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp[idx_lam],
                                                    velscale=velscale)
-        if normalize is True:
-            norm = np.nanmedian(sspNew)
-            sspNew /= norm
+
+        norm = np.nanmedian(sspNew)
+        sspNew /= norm
+        norm_templ[i] = norm
 
         templates[:, i] = sspNew
 
     print("%i/%i templates are processed." %
           (template_list.size, template_list.size))
 
-    return templates, lamRange_temp, logLam_temp
+    return templates, lamRange_temp, logLam_temp, norm_templ
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
@@ -338,7 +338,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     ext_data=1, ext_var=2,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
-                                    is_mask_telluric=True, normalize=False):
+                                    is_mask_telluric=True):  #, normalize=False):
     """Run pPXF for all Voronoi binned spectra made with
     :py:meth:`pyezmad.voronoi.stack`.
 
@@ -395,8 +395,6 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
     is_mask_telluric : bool, optional
         Flag to determine whether to mask telluric absorption band or not.
-    normalize : bool, optional
-        Normalize templates when it's ``True``. The default is ``False``.
     """
 
     if not os.path.exists(npy_dir):
@@ -421,10 +419,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     # ------------------- Setup templates -----------------------
 
     print("Preparing templates")
-    stars_templates, lamRange_temp, logLam_temp \
+    stars_templates, lamRange_temp, logLam_temp, norm_templ \
         = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem,
-                                 wmin=wmin_fit-dw_edge, wmax=wmax_fit+dw_edge,
-                                 normalize=normalize)
+                                 wmin=wmin_fit - dw_edge,
+                                 wmax=wmax_fit + dw_edge)
     # stars_templates /= np.median(stars_templates)
     # Normalizes stellar templates by a scalar
 
@@ -461,23 +459,36 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                 = util.log_rebin(lamRange_galaxy, noise0[ibin, mask]**2)
             noise = np.sqrt(noise2)
 
+            norm_galaxy = np.nanmedian(galaxy)
+            galaxy /= norm_galaxy
+            noise /= norm_galaxy
+
+            pp_out = os.path.join(npy_dir, npy_prefix + '_%06i.npy' % (ibin))
+
             t_begin_each = time.time()
-            pp = ppxf(stars_templates, galaxy, noise, velscale,
-                      start=[vel_init, sigma_init],
-                      lam=np.exp(logLam_galaxy),
-                      goodpixels=goodPixels, vsyst=dv,
-                      **ppxf_keydic)
-            t_end_each = time.time()
-            if not ppxf_keydic['quiet']:
-                print("....Time elapsed for %i-th bin: %.2f [seconds]"
-                      % (ibin, t_end_each - t_begin_each))
+            try:
+                pp = ppxf(stars_templates, galaxy, noise, velscale,
+                          start=[vel_init, sigma_init],
+                          lam=np.exp(logLam_galaxy),
+                          goodpixels=goodPixels, vsyst=dv,
+                          **ppxf_keydic)
+                t_end_each = time.time()
+                if not ppxf_keydic['quiet']:
+                    print("....Time elapsed for %i-th bin: %.2f [seconds]"
+                          % (ibin, t_end_each - t_begin_each))
 
-            pp.star = None
-            pp.star_rfft = None
-            pp.matrix = None
+                pp.weights *= (norm_galaxy * norm_templ)
 
-            np.save(os.path.join(npy_dir, npy_prefix + '_%06i.npy' % (ibin)),
-                    np.array([pp], dtype=np.object))
+                pp.star = None
+                pp.star_rfft = None
+                pp.matrix = None
+
+                np.save(pp_out, np.array([pp], dtype=np.object))
+            except:
+                print("Unexpected error:", sys.exc_info())
+                print("There is an error in Bin %i" % ibin)
+                print("An array containing None is saved as %s" % pp_out)
+                np.save(pp_out, np.array([None], dtype=np.object))
 
     #
     # parallelization
@@ -545,10 +556,16 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
                               ppxf_npy_prefix + '_%06i.npy' % ibin)
         if os.path.exists(pp_npy) is True:
             pp = np.load(pp_npy)[0]
-            vel.append(pp.sol[0])
-            sig.append(pp.sol[1])
-            errvel.append(pp.error[0] * np.sqrt(pp.chi2))
-            errsig.append(pp.error[1] * np.sqrt(pp.chi2))
+            if pp is None:
+                vel.append(np.nan)
+                sig.append(np.nan)
+                errvel.append(np.nan)
+                errsig.append(np.nan)
+            else:
+                vel.append(pp.sol[0])
+                sig.append(pp.sol[1])
+                errvel.append(pp.error[0] * np.sqrt(pp.chi2))
+                errsig.append(pp.error[1] * np.sqrt(pp.chi2))
         else:
             break
         ibin += 1
