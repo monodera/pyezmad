@@ -364,7 +364,7 @@ def setup_spectral_library(file_template_list, velscale,
     # Sigma difference in pixels
     sigma = FWHM_diff / sigma2fwhm / h2['CDELT1']
 
-    norm_templ = np.empty(template_list.size)
+    # norm_templ = np.empty(template_list.size)
 
     for i in range(template_list.size):
         if i % 100 == 0:
@@ -382,16 +382,16 @@ def setup_spectral_library(file_template_list, velscale,
         sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp[idx_lam],
                                                    velscale=velscale)
 
-        norm = np.nanmedian(sspNew)
-        sspNew /= norm
-        norm_templ[i] = norm
+        # norm = np.nanmedian(sspNew)
+        # sspNew /= norm
+        # norm_templ[i] = norm
 
         templates[:, i] = sspNew
 
     print("%i/%i templates are processed." %
           (template_list.size, template_list.size))
 
-    return templates, lamRange_temp, logLam_temp, norm_templ
+    return templates, lamRange_temp, logLam_temp  # , norm_templ
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
@@ -521,9 +521,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                 = util.log_rebin(lamRange_galaxy, noise0[ibin, mask]**2)
             noise = np.sqrt(noise2)
 
-            norm_galaxy = np.nanmedian(galaxy)
-            galaxy /= norm_galaxy
-            noise /= norm_galaxy
+            # norm_galaxy = np.nanmedian(galaxy)
+            # galaxy /= norm_galaxy
+            # noise /= norm_galaxy
 
             pp_out = os.path.join(npy_dir, npy_prefix + '_%06i.npy' % (ibin))
 
@@ -539,10 +539,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                     print("....Time elapsed for %i-th bin: %.2f [seconds]"
                           % (ibin, t_end_each - t_begin_each))
 
-                pp.weights *= (norm_galaxy * norm_templ)
-                pp.bestfit *= norm_galaxy
-                pp.galaxy *= norm_galaxy
-                pp.noise *= norm_galaxy
+                # pp.weights *= (norm_galaxy * norm_templ)
+                # pp.bestfit *= norm_galaxy
+                # pp.galaxy *= norm_galaxy
+                # pp.noise *= norm_galaxy
 
                 pp.star = None
                 pp.star_rfft = None
