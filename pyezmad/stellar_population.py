@@ -49,15 +49,16 @@ def compute_ppxf_stellar_population(nbin,
         pp_npy = os.path.join(pp_dir, pp_prefix + '_%06i.npy' % i)
         pp = np.load(pp_npy)[0]
 
-        mass_weights = pp.weights / tb_par['mstar']
+        if pp is not None:
+            mass_weights = pp.weights / tb_par['mstar']
 
-        lage[i] = np.average(tb_par['lage'], weights=mass_weights)
-        lmetal[i] = np.average(tb_par['lmetal'], weights=mass_weights)
+            lage[i] = np.average(tb_par['lage'], weights=mass_weights)
+            lmetal[i] = np.average(tb_par['lmetal'], weights=mass_weights)
 
-        # convert to per solar mass weight
-        tmp_smd = np.sum(mass_weights)
+            # convert to per solar mass weight
+            tmp_smd = np.sum(mass_weights)
 
-        smd[i] = tmp_smd
+            smd[i] = tmp_smd
 
     # scaled to luminosity
     smd *= (4 * np.pi * distance.to('cm').value**2) * 1e-20

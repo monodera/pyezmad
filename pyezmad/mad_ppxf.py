@@ -368,7 +368,8 @@ def setup_spectral_library(file_template_list, velscale,
 
     for i in range(template_list.size):
         if i % 100 == 0:
-            print("....%4i/%4i templates are processed." % (i, template_list.size))
+            print("....%4i/%4i templates are processed." %
+                  (i, template_list.size))
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
         # perform a convolution with wavelength-dependent sigma
