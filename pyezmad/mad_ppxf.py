@@ -391,7 +391,7 @@ def setup_spectral_library(file_template_list, velscale,
     print("%i/%i templates are processed." %
           (template_list.size, template_list.size))
 
-    return templates, lamRange_temp, logLam_temp  # , norm_templ
+    return(templates, lamRange_temp, logLam_temp)  # , norm_templ
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
@@ -484,7 +484,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
     # ------------------- Setup templates -----------------------
     print("Preparing templates")
-    stars_templates, lamRange_temp, logLam_temp, norm_templ \
+    stars_templates, lamRange_temp, logLam_temp \
         = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem,
                                  wmin=wmin_fit - dw_edge,
                                  wmax=wmax_fit + dw_edge)
