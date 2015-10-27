@@ -50,7 +50,8 @@ def compute_ppxf_stellar_population(nbin,
         pp = np.load(pp_npy)[0]
 
         if pp is not None:
-            mass_weights = pp.weights / tb_par['mstar']
+            # mass_weights = pp.weights / tb_par['mstar']
+            mass_weights = pp.weights * tb_par['mstar']
 
             lage[i] = np.average(tb_par['lage'], weights=mass_weights)
             lmetal[i] = np.average(tb_par['lmetal'], weights=mass_weights)
