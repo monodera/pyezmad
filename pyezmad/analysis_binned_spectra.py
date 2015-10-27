@@ -87,6 +87,10 @@ class BinSpecAnalysis:
         return(self.__segimg)
 
     def calc_elliptical_radius(self, xc, yc, pa, ellip):
-        self.__a_ell = map_pixel_major_axis(self.voronoi.bininfo['xcen'],
+        self.__r_ell = map_pixel_major_axis(self.voronoi.bininfo['xcen'],
                                             self.voronoi.bininfp['ycen'],
                                             xc, yc, pa, ellip)
+
+    @property
+    def r_ell(self):
+        return(self.__r_ell)

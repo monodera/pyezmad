@@ -474,27 +474,24 @@ def map_pixel_major_axis(x, y, xc, yc, theta=0., ellip=0.):
         :math:`a` and :math:`b` are major and minor axis length, respectively.
     """
 
-    raise(Exception("Not yet implemented!"))
-
     if isinstance(x, float) or isinstance(x, int):
         x = np.array([x], dtype=np.float)
     if isinstance(y, float) or isinstance(y, int):
         y = np.array([y], dtype=np.float)
 
+    pa_offset = 90.
+    theta = theta + pa_offset
     radiant = (theta * u.deg).to('radian')
     axis_ratio = (1. - ellip)
 
-    first_term = (x - xc) * np.cos(radiant) - (y - yc) * np.sin(radiant)
-    second_term = (x - xc) * np.sin(radiant) + (y - yc) * np.cos(radiant)
+    rad_major_squared = (((x - xc) * np.cos(radiant) +
+                          (y - yc) * np.sin(radiant))**2 +
+                         (-(x - xc) * np.sin(radiant) +
+                          (y - yc) * np.cos(radiant))**2 / axis_ratio**2)
 
-    # first_term = (x - xc) * np.sin(radiant) - (y - yc) * np.cos(radiant)
-    # second_term = (x - xc) * np.cos(radiant) + (y - yc) * np.sin(radiant)
+    rad_major = np.sqrt(rad_major_squared)
 
-    # rad_major_square = axis_ratio**2 * first_term**2 + second_term**2
-    rad_major_square = (first_term*axis_ratio)**2 + (second_term)**2
-    rad_major = np.sqrt(rad_major_square)
-
-    return(rad_major.value)
+    return(rad_major)
 
 
 if __name__ == '__main__':
