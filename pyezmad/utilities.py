@@ -315,6 +315,60 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     return(nbimg)
 
 
+def pixel_to_arcsec(pixscale=0.2):
+    """A factor to convert from pixel to arcsec.
+
+    Parameters
+    ----------
+    pixscale : float, optional
+        Pixel scale in arcsec/pixel. The default is 0.2.
+
+    Returns
+    -------
+    float :
+        Scalar to convert from pixel to arcsec.
+        ``x[arcsec] = x[pixel] * pixel_to_arcsec()``.
+        It's obvious, but just in case...
+    """
+    return(pixscale)
+
+
+def pixel_to_physical(distance, scale='kpc', pixscale=0.2):
+    """A factor to convert from pixel to physical length (kpc or pc).
+
+    Parameters
+    ----------
+    distance : float
+        Distance to the object in Mpc (astropy.unit instance is recommended)
+    scale : {'kpc', 'pc'}, optional
+        Unit to be converted either per 'kpc' or 'pc' (Other units may work).
+        The default is 'kpc'.
+    pixscale: float
+        Pixel scale in arcsec/pixel The default is 0.2.
+
+    Returns
+    -------
+    float :
+        Scalar to convert from pixel to physical
+        angular size with a given unit.
+        For instance, one can convert radius :math:`r` (pixels)
+        to kpc by ``r *= pixel_to_physical(distance=15*u.Mpc)``.
+    """
+
+    if isinstance(distance, u.quantity.Quantity) is False:
+        distance *= u.Mpc
+        print("Warning: Distance is forced to be in astropy.units.Mpc")
+
+    pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
+
+    if scale == 'pc':
+        pixscale2physical *= distance.to('pc')
+    elif scale == 'kpc':
+        pixscale2physical *= distance.to('kpc')
+
+    return(pixscale2physical.value)
+
+
 def per_pixel_to_arcsec(pixscale=0.2):
     """A factor to convert from per pixel to per arcsec.
 
@@ -326,7 +380,7 @@ def per_pixel_to_arcsec(pixscale=0.2):
     Returns
     -------
     float :
-        Scalar to convert from per sq. pixel to per sq. arcsec.
+        Scalar to convert from per pixel to per arcsec.
         For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix`
         to in :math:`erg/s/cm^2/A/arcsec^2`
         by ``f * per_pixel_to_arcsec()**2``.
@@ -351,24 +405,26 @@ def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
     -------
     float :
         Scalar to convert from per pixel to per physical
-        angular size with the given unit.
+        angular size with a given unit.
         For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix^2` to
         in :math:`erg/s/cm^2/A/kpc^2`
         by ``f * per_pixel_to_physical(distance, scale='kpc')**2``.
     """
 
-    if isinstance(distance, u.quantity.Quantity) is False:
-        distance *= u.Mpc
-        print("Warning: Distance is forced to be in astropy.units.Mpc")
+    # if isinstance(distance, u.quantity.Quantity) is False:
+    #     distance *= u.Mpc
+    #     print("Warning: Distance is forced to be in astropy.units.Mpc")
 
-    pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
+    # pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
 
-    if scale == 'pc':
-        pixscale2physical *= distance.to('pc')
-    elif scale == 'kpc':
-        pixscale2physical *= distance.to('kpc')
+    # if scale == 'pc':
+    #     pixscale2physical *= distance.to('pc')
+    # elif scale == 'kpc':
+    #     pixscale2physical *= distance.to('kpc')
 
-    return(1. / pixscale2physical.value)
+    # return(1. / pixscale2physical.value)
+
+    return(1. / pixel_to_physical(distance, scale=scale, pixscale=pixscale))
 
 
 def get_ned_velocity(name=None):
