@@ -5,6 +5,8 @@ import warnings
 import numpy as np
 import astropy.io.fits as fits
 
+import pyneb as pn
+
 from .emission_line_fitting import search_lines
 from .extinction import ebv_balmer_decrement
 from .metallicity import compute_metallicity
@@ -291,3 +293,36 @@ class EmissionLine:
     @property
     def e_oh12_img(self):
         return(self.__e_oh12_img)
+
+    def calc_electron_density(self, line1=None, line2=None, tem=1e4):
+
+        if str.find(line1, 'SII') != -1:
+            extname, keyname = search_lines(self.__hdu, [line1, line2])
+            ratio = (self.__hdu[extname[line1]].data['f_' + line1] /
+                     self.__hdu[extname[line2]].data['f_' + line2])
+            atom = pn.Atom('S', 2)
+            self.__ne = compute_electron_density(ratio,
+                                                 wave1=self.__linelist[line1],
+                                                 wave2=self.__linelist[line2],
+                                                 tem=tem,
+                                                 atom=atom)
+            self.__ne_img = create_value_image(self.__segimg,
+                                               self.__ne)
+
+            if self.__mask is not None:
+                self.__ne[self.__mask] = np.nan
+            if self.__mask_img is not None:
+                self.__ne_img[self.__mask_img] = np.nan
+        else:
+            raise(ValueError("Only [SII] lines are supported."))
+
+
+def compute_electron_density(ratio,
+                             wave1=None,
+                             wave2=None,
+                             tem=1e4,
+                             atom=None):
+
+    ne = atom.getTemDen(int_ratio=ratio, tem=tem, wave1=wave1, wave2=wave2)
+
+    return(ne)
