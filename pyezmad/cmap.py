@@ -34,6 +34,7 @@ sigma = _cmap_dict['sigma']
 sig = sigma
 age_ha = _cmap_dict['age_ha']
 ew = _cmap_dict['ew']
+eqw = _cmap_dict['ew']
 # mass = cm.Purples
 mass = _cmap_dict['mass']
 age_star = _cmap_dict['age_star']

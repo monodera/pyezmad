@@ -19,6 +19,7 @@ from .utilities import (get_wavelength,
 from .emissionline import EmissionLine
 from .mad_ppxf import Ppxf
 from .voronoi import Voronoi, create_value_image
+from .stellar_population import compute_equivalent_width
 
 
 class BinSpecAnalysis:
@@ -30,7 +31,8 @@ class BinSpecAnalysis:
                  segimg=None,
                  ppxf=None,
                  emfit=None,
-                 max_npix=None):
+                 max_npix=None,
+                 ):
 
         if binspec is not None:
             self.read_binspec(binspec)
@@ -94,3 +96,39 @@ class BinSpecAnalysis:
     @property
     def r_ell(self):
         return(self.__r_ell)
+
+    def calc_equivalent_width(self,
+                              line=None,
+                              ppxf_npy_dir=None,
+                              ppxf_npy_prefix=None):
+
+        self.__eqw = {}
+        self.__eqw_img = {}
+
+        if isinstance(line, str) is True:
+            line = [line]
+
+        for lname in line:
+            self.__eqw[lname] \
+                = compute_equivalent_width(
+                    line=lname,
+                    ppxf_npy_dir=ppxf_npy_dir,
+                    ppxf_npy_prefix=ppxf_npy_prefix,
+                    hdu_em=self.em.hdu)
+            self.__eqw_img[lname] = create_value_image(self.segimg,
+                                                       self.__eqw[lname])
+            if self.__mask is not None:
+                self.__eqw[lname][self.__mask] = np.nan
+            if self.__mask_img is not None:
+                self.__eqw_img[lname][self.__mask_img] = np.nan
+
+    @property
+    def eqw(self):
+        return(self.__eqw)
+
+    @property
+    def eqw_img(self):
+        return(self.__eqw_img)
+
+    # def get_eqw(self, line=None):
+    #     return(self.__eqw[line])
