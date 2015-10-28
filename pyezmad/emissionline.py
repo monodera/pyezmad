@@ -319,6 +319,7 @@ class EmissionLine:
     @property
     def ne(self):
         return(self.__ne)
+
     @property
     def ne_img(self):
         return(self.__ne_img)
