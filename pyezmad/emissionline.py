@@ -296,7 +296,7 @@ class EmissionLine:
 
     def calc_electron_density(self, line1=None, line2=None, tem=1e4):
 
-        if str.find(line1, 'SII') != -1:
+        if line1[0:3] != -1:
             extname, keyname = search_lines(self.__hdu, [line1, line2])
             ratio = (self.__hdu[extname[line1]].data['f_' + line1] /
                      self.__hdu[extname[line2]].data['f_' + line2])
