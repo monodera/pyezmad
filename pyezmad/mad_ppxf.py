@@ -581,6 +581,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
     for p in processes:
         p.start()
+        # - have some sleep before submitting next process.
+        # - not sure this helps, but sometimes it make pipe error,
+        #   so I'm trying to do it. Maximum n_thread*1 sec loss, no problem.
+        time.sleep(1)
 
     for p in processes:
         p.join()
