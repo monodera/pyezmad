@@ -550,6 +550,32 @@ def map_pixel_major_axis(x, y, xc, yc, theta=0., ellip=0.):
     return(rad_major)
 
 
+def get_bpt_line(x, pop='sfg', xylines='n2o3'):
+    """Get a line for BPT diagram from
+    Kewley et al. (2006, MNRAS, 372, 961).
+    """
+    if pop.lower() == 'sfg':
+        if xylines.lower() == 'n2o3':
+            y = 0.61 / (x - 0.05) + 1.3
+            y[x >= 0.05] = np.nan
+        elif xylines.lower() == 's2o3':
+            y = 0.72 / (x - 0.32) + 1.3
+            y[x >= 0.32] = np.nan
+        elif xylines.lower() == 'o1o3':
+            y = 0.73 / (x + 0.59) + 1.33
+            y[x >= -0.59] = np.nan
+
+    elif pop.lower() in {'composite', 'comp'}:
+        if xylines.lower() == 'n2o3':
+            y = 0.61 / (x - 0.47) + 1.19
+            y[x >= 0.47] = np.nan
+        else:
+            raise(KeyError("Composite galaxy line is supported " +
+                           "only in [NII]/Halpha BPT diagram."))
+
+    return(y)
+
+
 if __name__ == '__main__':
 
     print('do nothing')

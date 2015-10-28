@@ -37,6 +37,15 @@ class EmissionLine:
     def segimg(self):
         return(self.__segimg)
 
+    def get_flux(self, line=None, err=True):
+        extname, keyname = search_lines(self.__hdu, [line])
+        f = self.__hdu[extname[line]].data['f_' + line]
+        ef = self.__hdu[extname[line]].data['ef_' + line]
+        if err is True:
+            return(f, ef)
+        else:
+            return(f)
+
     def make_kinematics_img(self, vc=None, refline='Halpha'):
         extname, keyname = search_lines(self.__hdu, [refline])
         self.__vel = self.__hdu[extname[refline]].data['vel']
