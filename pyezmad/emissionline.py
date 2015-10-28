@@ -296,7 +296,7 @@ class EmissionLine:
 
     def calc_electron_density(self, line1=None, line2=None, tem=1e4):
 
-        if line1[0:3] != -1:
+        if line1[0:3] == 'SII':
             extname, keyname = search_lines(self.__hdu, [line1, line2])
             ratio = (self.__hdu[extname[line1]].data['f_' + line1] /
                      self.__hdu[extname[line2]].data['f_' + line2])
@@ -314,7 +314,14 @@ class EmissionLine:
             if self.__mask_img is not None:
                 self.__ne_img[self.__mask_img] = np.nan
         else:
-            raise(ValueError("Only [SII] lines are supported."))
+            raise(ValueError("Only 'SII6717' and 'SII6731' are supported."))
+
+    @property
+    def ne(self):
+        return(self.__ne)
+    @property
+    def ne_img(self):
+        return(self.__ne_img)
 
 
 def compute_electron_density(ratio,
