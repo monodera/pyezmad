@@ -30,8 +30,8 @@ from .stellar_population import compute_ppxf_stellar_population
 
 class Ppxf():
     def __init__(self, ppxf=None, segimg=None, mask=None, mask_img=None,
-                 ppxf_1st_dir=None, ppxf_1st_prefix=None,
-                 ppxf_pop_dir=None, ppxf_pop_prefix=None):
+                 ppxf_dir1=None, ppxf_prefix1=None,
+                 ppxf_dir2=None, ppxf_prefix2=None):
         if ppxf is not None:
             self.__segimg = segimg
             self.__mask = mask
