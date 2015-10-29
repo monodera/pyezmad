@@ -100,6 +100,14 @@ class Ppxf():
         return(self.__segimg)
 
     @property
+    def chisq1(self):
+        return(self.__chisq1)
+
+    @property
+    def chisq2(self):
+        return(self.__chisq2)
+
+    @property
     def mask(self):
         return(self.__mask)
 
