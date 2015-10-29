@@ -52,12 +52,14 @@ class Ppxf():
         for i in range(self.__tb['vel'].size):
 
             if self.dir1 is not None:
-                file_pp = os.path.join(self.dir1, self.prefix1 + '%06i.npy')
+                file_pp = os.path.join(self.dir1,
+                                       self.prefix1 + '%06i.npy' % i)
                 pp = np.load(file_pp)[0]
                 if pp is not None:
                     self.__chisq1[i] = pp.chi2
             if self.dir2 is not None:
-                file_pp = os.path.join(self.dir2, self.prefix2 + '%06i.npy')
+                file_pp = os.path.join(self.dir2,
+                                       self.prefix2 + '%06i.npy' % i)
                 pp = np.load(file_pp)[0]
                 if pp is not None:
                     self.__chisq2[i] = pp.chi2

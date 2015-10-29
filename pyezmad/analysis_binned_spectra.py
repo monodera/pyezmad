@@ -86,10 +86,13 @@ class BinSpecAnalysis:
     def read_ppxf(self, ppxf,
                   ppxf_dir1, ppxf_prefix1,
                   ppxf_dir2, ppxf_prefix2):
-        self.ppxf = Ppxf(ppxf, segimg=self.segimg,
+        self.ppxf = Ppxf(ppxf,
+                         segimg=self.segimg,
                          mask=self.__mask, mask_img=self.__mask_img,
-                         ppxf_dir1=ppxf_dir1, ppxf_prefix1=ppxf_prefix1,
-                         ppxf_dir2=ppxf_dir2, ppxf_prefix2=ppxf_prefix2)
+                         ppxf_dir1=ppxf_dir1,
+                         ppxf_prefix1=ppxf_prefix1,
+                         ppxf_dir2=ppxf_dir2,
+                         ppxf_prefix2=ppxf_prefix2)
 
     def read_emfit(self, emfit):
         self.em = EmissionLine(emfit, self.segimg,
