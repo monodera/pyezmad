@@ -111,6 +111,11 @@ class BinSpecAnalysis:
         self.__eqw = {}
         self.__eqw_img = {}
 
+        if (ppxf_npy_dir is None) and (self.ppxf.dir2 is not None):
+            ppxf_npy_dir = self.ppxf.dir2
+        if (ppxf_npy_prefix is None) and (self.ppxf.prefix2 is not None):
+            ppxf_npy_prefix = self.ppxf.prefix2
+
         if isinstance(line, str) is True:
             line = [line]
 
