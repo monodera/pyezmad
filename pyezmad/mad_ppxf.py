@@ -53,13 +53,13 @@ class Ppxf():
 
             if self.dir1 is not None:
                 file_pp = os.path.join(self.dir1,
-                                       self.prefix1 + '%06i.npy' % i)
+                                       self.prefix1 + '_%06i.npy' % i)
                 pp = np.load(file_pp)[0]
                 if pp is not None:
                     self.__chisq1[i] = pp.chi2
             if self.dir2 is not None:
                 file_pp = os.path.join(self.dir2,
-                                       self.prefix2 + '%06i.npy' % i)
+                                       self.prefix2 + '_%06i.npy' % i)
                 pp = np.load(file_pp)[0]
                 if pp is not None:
                     self.__chisq2[i] = pp.chi2
