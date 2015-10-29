@@ -83,8 +83,13 @@ class BinSpecAnalysis:
         self.hdu_segimg = fits.open(segimg)
         self.__segimg = self.hdu_segimg[0].data
 
-    def read_ppxf(self, ppxf):
-        self.ppxf = Ppxf(ppxf, self.segimg, self.__mask, self.__mask_img)
+    def read_ppxf(self, ppxf,
+                  ppxf_dir1, ppxf_prefix1,
+                  ppxf_dir2, ppxf_prefix2):
+        self.ppxf = Ppxf(ppxf, segimg=self.segimg,
+                         mask=self.__mask, mask_img=self.__mask_img,
+                         ppxf_dir1=ppxf_dir1, ppxf_prefix1=ppxf_prefix1,
+                         ppxf_dir2=ppxf_dir2, ppxf_prefix2=ppxf_prefix2)
 
     def read_emfit(self, emfit):
         self.em = EmissionLine(emfit, self.segimg,
