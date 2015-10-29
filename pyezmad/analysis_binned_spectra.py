@@ -63,8 +63,8 @@ class BinSpecAnalysis:
 
         if ppxf is not None:
             self.read_ppxf(ppxf,
-                           ppxf_1st_dir, ppxf_pop_prefix,
-                           ppxf_pop_dir, ppxf_pop_prefix)
+                           ppxf_dir1, ppxf_prefix1,
+                           ppxf_dir2, ppxf_prefix2)
 
         if emfit is not None:
             self.read_emfit(emfit)
