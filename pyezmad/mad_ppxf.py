@@ -36,10 +36,10 @@ class Ppxf():
             self.__segimg = segimg
             self.__mask = mask
             self.__mask_img = mask_img
-            self.dir1 = ppxf_1st_dir
-            self.prefix1 = ppxf_1st_prefix
-            self.dir2 = ppxf_pop_dir
-            self.prefix2 = ppxf_pop_prefix
+            self.dir1 = ppxf_dir1
+            self.prefix1 = ppxf_prefix1
+            self.dir2 = ppxf_dir2
+            self.prefix2 = ppxf_prefix2
 
             self.load_data(ppxf)
 
