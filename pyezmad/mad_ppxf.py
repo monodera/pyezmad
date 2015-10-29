@@ -29,24 +29,69 @@ from .stellar_population import compute_ppxf_stellar_population
 
 
 class Ppxf():
-    def __init__(self, ppxf=None, segimg=None, mask=None, mask_img=None):
+    def __init__(self, ppxf=None, segimg=None, mask=None, mask_img=None,
+                 ppxf_1st_dir=None, ppxf_1st_prefix=None,
+                 ppxf_pop_dir=None, ppxf_pop_prefix=None):
         if ppxf is not None:
             self.__segimg = segimg
             self.__mask = mask
             self.__mask_img = mask_img
+            self.dir1 = ppxf_1st_dir
+            self.prefix1 = ppxf_1st_prefix
+            self.dir2 = ppxf_pop_dir
+            self.prefix2 = ppxf_pop_prefix
+
             self.load_data(ppxf)
 
     def load_data(self, ppxf):
         self.__tb = Table.read(ppxf)
+
+        self.__chisq1 = np.empty(self.__tb['vel'].size) + np.nan
+        self.__chisq2 = np.empty(self.__tb['vel'].size) + np.nan
+
+        for i in range(self.__tb['vel'].size):
+
+            if self.dir1 is not None:
+                file_pp = os.path.join(self.dir1, self.prefix1 + '%06i.npy')
+                pp = np.load(file_pp)[0]
+                if pp is not None:
+                    self.__chisq1[i] = pp.chi2
+            if self.dir2 is not None:
+                file_pp = os.path.join(self.dir2, self.prefix2 + '%06i.npy')
+                pp = np.load(file_pp)[0]
+                if pp is not None:
+                    self.__chisq2[i] = pp.chi2
+
         if self.__mask is not None:
             self.__tb['vel'][self.__mask] = np.nan
             self.__tb['errvel'][self.__mask] = np.nan
             self.__tb['sig'][self.__mask] = np.nan
             self.__tb['errsig'][self.__mask] = np.nan
 
+        self.__vel = self.__tb['vel']
+        self.__e_vel = self.__tb['errvel']
+        self.__sig = self.__tb['sig']
+        self.__e_sig = self.__tb['errsig']
+
     @property
     def tb(self):
         return(self.__tb)
+
+    @property
+    def vel(self):
+        return(self.__vel)
+
+    @property
+    def e_vel(self):
+        return(self.__e_vel)
+
+    @property
+    def sig(self):
+        return(self.__sig)
+
+    @property
+    def e_sig(self):
+        return(self.__e_sig)
 
     @property
     def segimg(self):
@@ -98,12 +143,22 @@ class Ppxf():
     def e_sig_img(self):
         return(self.__e_sig_img)
 
-    def calc_stellarpop(self, distance, pp_dir, pp_prefix, parfile=None):
+    def calc_stellarpop(self,
+                        distance,
+                        pp_dir=None,
+                        pp_prefix=None,
+                        parfile=None):
+
         if parfile is None:
             raise(
                 ValueError(
                     "A file listing log Age/Gyr, [Z/H], "
                     "and stellar mass must be provided."))
+
+        if (pp_dir is None) and (self.dir2 is not None):
+            pp_dir = self.dir2
+        if (pp_prefix is None) and (self.prefix2 is not None):
+            pp_prefix = self.prefix2
 
         self.__lage, self.__lmetal, self.__smd, self.__lsmd \
             = compute_ppxf_stellar_population(self.__tb['vel'].size,

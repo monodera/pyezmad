@@ -30,6 +30,10 @@ class BinSpecAnalysis:
                  voronoi_bininfo=None,
                  segimg=None,
                  ppxf=None,
+                 ppxf_1st_dir=None,
+                 ppxf_1st_prefix=None,
+                 ppxf_pop_dir=None,
+                 ppxf_pop_prefix=None,
                  emfit=None,
                  max_npix=None,
                  ):
@@ -58,7 +62,9 @@ class BinSpecAnalysis:
                 self.__mask_img[np.where(self.__npix_img > max_npix)] = True
 
         if ppxf is not None:
-            self.read_ppxf(ppxf)
+            self.read_ppxf(ppxf,
+                           ppxf_1st_dir, ppxf_pop_prefix,
+                           ppxf_pop_dir, ppxf_pop_prefix)
 
         if emfit is not None:
             self.read_emfit(emfit)
