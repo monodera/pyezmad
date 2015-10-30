@@ -27,7 +27,7 @@ _cmap_dict = {'white': cm.Greys_r,
               'metal_star': cm.PuBu,
               'radius': cm.viridis,
               'ssfr': cm.inferno,
-              'ne': cm.YnGnBu}
+              'ne': cm.YlGnBu}
 
 if LooseVersion(matplotlib.__version__) > LooseVersion('1.5'):
     _cmap_dict['age_star'] = cm.magma_r
