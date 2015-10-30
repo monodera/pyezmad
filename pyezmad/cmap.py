@@ -27,9 +27,9 @@ _cmap_dict = {'white': cm.Greys_r,
               'metal_star': cm.PuBu}
 
 if LooseVersion(matplotlib.__version__) > LooseVersion('1.5'):
-    _cmap_dict['metal_star'] = cm.magma
+    _cmap_dict['age_star'] = cm.magma
 else:
-    _cmap_dict['metal_star'] = cm.Oranges
+    _cmap_dict['age_star'] = cm.Oranges
 
 
 white = _cmap_dict['white']
