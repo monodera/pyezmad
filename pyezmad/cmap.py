@@ -24,7 +24,10 @@ _cmap_dict = {'white': cm.Greys_r,
               'ew': cm.YlGn_r,
               # 'mass': cm.Purples,
               'mass': _cmap_mass,
-              'metal_star': cm.PuBu}
+              'metal_star': cm.PuBu,
+              'radius': cm.viridis,
+              'ssfr': cm.inferno,
+              'ne': cm.YnGnBu}
 
 if LooseVersion(matplotlib.__version__) > LooseVersion('1.5'):
     _cmap_dict['age_star'] = cm.magma_r
@@ -47,6 +50,9 @@ eqw = _cmap_dict['ew']
 mass = _cmap_dict['mass']
 age_star = _cmap_dict['age_star']
 metal_star = _cmap_dict['metal_star']
+radius = _cmap_dict['radius']
+ssfr = _cmap_dict['ssfr']
+ne = _cmap_dict['ne']
 
 
 # def get_cmap(key, n=None):
