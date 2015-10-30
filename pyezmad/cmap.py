@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from distutils.version import LooseVersion, StrictVersion
+
+import matplotlib
 import matplotlib.cm as cm
 import seaborn.apionly as sns
 
@@ -21,8 +24,13 @@ _cmap_dict = {'white': cm.Greys_r,
               'ew': cm.YlGn_r,
               # 'mass': cm.Purples,
               'mass': _cmap_mass,
-              'age_star': cm.Oranges,
               'metal_star': cm.PuBu}
+
+if LooseVersion(matplotlib.__version__) > LooseVersion('1.5'):
+    _cmap_dict['metal_star'] = cm.magma
+else:
+    _cmap_dict['metal_star'] = cm.Oranges
+
 
 white = _cmap_dict['white']
 npix = _cmap_dict['npix']
