@@ -275,7 +275,7 @@ def create_narrowband_image(hducube,
     wmin, wmax = ww - dwave, ww + dwave
 
     if method == 'median':
-        f_reduce = nansum
+        f_reduce = nanmedian
     elif method == 'mean':
         f_reduce = nanmean
     elif method == 'sum':
@@ -337,7 +337,7 @@ def create_narrowband_image_simple(hducube, wcenter, dw, method='mean'):
     tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, :, :]
 
     if method == 'median':
-        f_reduce = nansum
+        f_reduce = nanmedian
     elif method == 'mean':
         f_reduce = nanmean
     elif method == 'sum':
