@@ -295,6 +295,8 @@ def create_narrowband_image(hducube,
             if np.isnan(maskimg[iy, ix]) is True:
                 continue
 
+            print(ix, iy, wmin[iy, ix])
+
             if np.isnan(wmin[iy, ix]) is True:
                 idx_wmin = search_nearest_index(wcube, wmin_med)
             else:
