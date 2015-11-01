@@ -279,6 +279,9 @@ def create_narrowband_image(hducube,
 
     wmin, wmax = ww - dwave, ww + dwave
 
+    wmin_med = nanmedian(wmin)
+    wmax_med = nanmedian(wmax)
+
     if method == 'median':
         f_reduce = nanmedian
     elif method == 'mean':
@@ -290,21 +293,20 @@ def create_narrowband_image(hducube,
                        "Choose one from ['median', 'mean' (default), 'sum']"))
 
     # FIXME: Looping is very slow in Python. There must be more efficient way.
-    wmin_med = nanmedian(wmin)
-    wmax_med = nanmedian(wmax)
     for ix in xrange(h['NAXIS1']):
         for iy in xrange(h['NAXIS2']):
-            if np.isnan(maskimg[iy, ix]) is True:
+
+            if np.isnan(maskimg[iy, ix]):
                 continue
 
-            print(ix, iy, wmin[iy, ix])
+            # print(ix, iy, wmin[iy, ix])
 
-            if np.isnan(wmin[iy, ix]) is True:
+            if np.isnan(wmin[iy, ix]):
                 idx_wmin = search_nearest_index(wcube, wmin_med)
             else:
                 idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
 
-            if np.isnan(wmax[iy, ix]) is True:
+            if np.isnan(wmax[iy, ix]):
                 idx_wmax = search_nearest_index(wcube, wmax_med)
             else:
                 idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
