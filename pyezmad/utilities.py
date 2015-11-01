@@ -302,12 +302,23 @@ def create_narrowband_image(hducube,
             # print(ix, iy, wmin[iy, ix])
 
             if np.isnan(wmin[iy, ix]):
-                idx_wmin = search_nearest_index(wcube, wmin_med)
+                idx_wmin = search_nearest_index(
+                    wcube,
+                    np.nanmedian(wmin[np.min([0, iy - 3]):
+                                      np.max([iy - 3, h['NAXIS2']]),
+                                      np.min([0, ix - 3]):
+                                      np.max([ix - 3, h['NAXIS1']])]))
             else:
                 idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
 
             if np.isnan(wmax[iy, ix]):
-                idx_wmax = search_nearest_index(wcube, wmax_med)
+                # idx_wmax = search_nearest_index(wcube, wmax_med)
+                idx_wmax = search_nearest_index(
+                    wcube,
+                    np.nanmedian(wmax[np.min([0, iy - 3]):
+                                      np.max([iy - 3, h['NAXIS2']]),
+                                      np.min([0, ix - 3]):
+                                      np.max([ix - 3, h['NAXIS1']])]))
             else:
                 idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
 
