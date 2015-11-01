@@ -16,12 +16,12 @@ import matplotlib.cm as cm
 
 import pyezmad
 
-try:
-    from bottleneck import (nansum, nanmax, nanargmin,
-                            nanmean, nanmedian)
-except ImportError:
-    from np import (nansum, nanmax, nanargmin,
-                    nanmean, nanmedian)
+# try:
+#     from bottleneck import (nansum, nanmax, nanargmin,
+#                             nanmean, nanmedian)
+# except ImportError:
+from np import (nansum, nanmax, nanargmin,
+                nanmean, nanmedian)
 
 
 # maybe there is a better way to set this number...
