@@ -261,13 +261,15 @@ def create_narrowband_image(hducube,
     else:
         if isinstance(vel, np.ndarray) is False:
             vel = np.ones_like(nbimg) * vel
-        zz = (1. + vel * u.km / u.s / c.to('km / s'))
+        # zz = (1. + vel * u.km / u.s / c.to('km / s'))
+        zz = (1. + vel / c.to('km / s').value)
         ww = wcenter * zz
 
     if dw is None:
         if isinstance(vdisp, np.ndarray) is False:
             vdisp = np.ones_like(nbimg) * vdisp
-        dwave = (vdisp * u.km / u.s) / c.to('km / s') * ww * nsig
+        # ndwave = (vdisp * u.km / u.s) / c.to('km / s') * ww * nsig
+        dwave = vdisp / c.to('km / s').value * ww * nsig
     elif vdisp is None:
         dwave = dw * np.ones_like(nbimg)
         zz = 0.
@@ -297,12 +299,12 @@ def create_narrowband_image(hducube,
 
             print(ix, iy, wmin[iy, ix])
 
-            if np.isnan(wmin[iy, ix].value) is True:
+            if np.isnan(wmin[iy, ix]) is True:
                 idx_wmin = search_nearest_index(wcube, wmin_med)
             else:
                 idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
 
-            if np.isnan(wmax[iy, ix].value) is True:
+            if np.isnan(wmax[iy, ix]) is True:
                 idx_wmax = search_nearest_index(wcube, wmax_med)
             else:
                 idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
