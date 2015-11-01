@@ -187,6 +187,9 @@ def create_whitelight_image(infile, prefix_out,
     iw_begin = search_nearest_index(w, w_begin)
     iw_end = search_nearest_index(w, w_end)
 
+    # iw_begin[~np.isnan(iw_begin)] = np.median(iw_begin)
+    # iw_end[~np.isnan(iw_end)] = np.median(iw_end)
+
     # wi = np.nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
     wi = nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
 
@@ -285,12 +288,23 @@ def create_narrowband_image(hducube,
                        "Choose one from ['median', 'mean' (default), 'sum']"))
 
     # FIXME: Looping is very slow in Python. There must be more efficient way.
+    wmin_med = nanmedian(wmin)
+    wmax_med = nanmedian(wmax)
     for ix in xrange(h['NAXIS1']):
         for iy in xrange(h['NAXIS2']):
             if np.isnan(maskimg[iy, ix]) is True:
                 continue
-            idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
-            idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
+
+            if np.isnan(wmin[iy, ix]) is True:
+                idx_wmin = search_nearest_index(wcube, wmin_med)
+            else:
+                idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
+
+            if np.isnan(wmax[iy, ix]) is True:
+                idx_wmax = search_nearest_index(wcube, wmax_med)
+            else:
+                idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
+
             tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, iy, ix]
             # nbimg[iy, ix] = nansum(tmpspec)
             nbimg[iy, ix] = f_reduce(tmpspec)
