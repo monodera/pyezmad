@@ -30,8 +30,8 @@ class EmissionLine:
 
     def load_data(self, emfit):
         self.__hdu = fits.open(emfit)
-        self.__ebv, self.__e_ebv \
-            = np.zeros(self.__hdu[1].header['NAXIS2']), np.zeros(self.__hdu[1].header['NAXIS2']),
+        self.__ebv = np.zeros(self.__hdu[1].header['NAXIS2'])
+        self.__e_ebv = np.zeros(self.__hdu[1].header['NAXIS2'])
 
     @property
     def hdu(self):

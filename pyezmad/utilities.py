@@ -247,7 +247,7 @@ def create_narrowband_image(hducube,
     h = hducube[1].header
 
     wcube = get_wavelength(hducube, axis=3)
-    nbimg = np.empty((h['NAXIS2'], h['NAXIS1']))
+    nbimg = np.zeros((h['NAXIS2'], h['NAXIS1']))
     maskimg = nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
 
