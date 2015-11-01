@@ -16,6 +16,14 @@ import matplotlib.cm as cm
 
 import pyezmad
 
+try:
+    from bottleneck import (nansum, nanmax, nanargmin,
+                            nanmean, nanmedian)
+except ImportError:
+    from np import (nansum, nanmax, nanargmin,
+                    nanmean, nanmedian)
+
+
 # maybe there is a better way to set this number...
 # sigma2fwhm = 2.3548200
 sigma2fwhm = 2. * np.sqrt(2. * np.log(2.))
@@ -125,7 +133,7 @@ def search_nearest_index(x, x0):
     index : int
        Index value for which (x-x0) is minimized.
     """
-    return(np.argmin(np.abs(x - x0)))
+    return(nanargmin(np.abs(x - x0)))
 
 
 def create_whitelight_image(infile, prefix_out,
@@ -179,7 +187,8 @@ def create_whitelight_image(infile, prefix_out,
     iw_begin = search_nearest_index(w, w_begin)
     iw_end = search_nearest_index(w, w_end)
 
-    wi = np.nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
+    # wi = np.nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
+    wi = nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
 
     if is_save is True:
         fits.writeto(prefix_out + '.fits', wi, hdu[ext].header, clobber=True)
@@ -202,7 +211,8 @@ def create_whitelight_image(infile, prefix_out,
 
 def create_narrowband_image(hducube,
                             wcenter, dw=None,
-                            vel=None, vdisp=None, nsig=3.):
+                            vel=None, vdisp=None, nsig=3.,
+                            method='mean'):
     """Create a narrow band image.  Possibiilty to input velocity structures.
 
     Parameters
@@ -224,6 +234,9 @@ def create_narrowband_image(hducube,
     nsig : int or float
         Narrow-band extraction is carried out to ``nsig``
         times the velocity dispersion.
+    method : str,optional
+        Method to compute values at each pixel.
+        Supported methods are ``mean``, ``median`` and ``sum``.
 
     Returns
     -------
@@ -235,7 +248,7 @@ def create_narrowband_image(hducube,
 
     wcube = get_wavelength(hducube, axis=3)
     nbimg = np.empty((h['NAXIS2'], h['NAXIS1']))
-    maskimg = np.nanmax(hducube[1].data, axis=0)
+    maskimg = nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
 
     if vel is None:
@@ -261,6 +274,16 @@ def create_narrowband_image(hducube,
 
     wmin, wmax = ww - dwave, ww + dwave
 
+    if method == 'median':
+        f_reduce = nansum
+    elif method == 'mean':
+        f_reduce = nanmean
+    elif method == 'sum':
+        f_reduce = nansum
+    else:
+        raise(KeyError("method=%s is not supported. "
+                       "Choose one from ['median', 'mean' (default), 'sum']"))
+
     # FIXME: Looping is very slow in Python. There must be more efficient way.
     for ix in xrange(h['NAXIS1']):
         for iy in xrange(h['NAXIS2']):
@@ -269,14 +292,15 @@ def create_narrowband_image(hducube,
             idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
             idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
             tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, iy, ix]
-            nbimg[iy, ix] = np.nansum(tmpspec)
+            # nbimg[iy, ix] = nansum(tmpspec)
+            nbimg[iy, ix] = f_reduce(tmpspec)
 
     nbimg[np.isnan(maskimg)] = np.nan
 
     return(nbimg)
 
 
-def create_narrowband_image_simple(hducube, wcenter, dw):
+def create_narrowband_image_simple(hducube, wcenter, dw, method='mean'):
     """Create a narrow band image in a simple way.
 
     Parameters
@@ -288,6 +312,9 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     dw :
         Extraction width in angstrom.
         Narrow-band image will be extracted for ``wcenter+/-dw``.
+    method : str,optional
+        Method to compute values at each pixel.
+        Supported methods are ``mean``, ``median`` and ``sum``.
 
     Returns
     -------
@@ -300,7 +327,7 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     wcube = get_wavelength(hducube, axis=3)
 
     nbimg = np.empty((h['NAXIS2'], h['NAXIS1']))
-    maskimg = np.nanmax(hducube[1].data, axis=0)
+    maskimg = nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
 
     wmin, wmax = wcenter - dw, wcenter + dw
@@ -308,7 +335,19 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     idx_wmin = search_nearest_index(wcube, wmin)
     idx_wmax = search_nearest_index(wcube, wmax)
     tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, :, :]
-    nbimg = np.nansum(tmpspec, axis=0)
+
+    if method == 'median':
+        f_reduce = nansum
+    elif method == 'mean':
+        f_reduce = nanmean
+    elif method == 'sum':
+        f_reduce = nansum
+    else:
+        raise(KeyError("method=%s is not supported. "
+                       "Choose one from ['median', 'mean' (default), 'sum']"))
+
+    # nbimg = nansum(tmpspec, axis=0)
+    nbimg = f_reduce(tmpspec, axis=0)
 
     nbimg[np.isnan(maskimg)] = np.nan
 
