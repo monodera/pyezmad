@@ -20,8 +20,8 @@ import pyezmad
 #     from bottleneck import (nansum, nanmax, nanargmin,
 #                             nanmean, nanmedian)
 # except ImportError:
-from np import (nansum, nanmax, nanargmin,
-                nanmean, nanmedian)
+from numpy import (nansum, nanmax, nanargmin,
+                   nanmean, nanmedian)
 
 
 # maybe there is a better way to set this number...
