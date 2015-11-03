@@ -5,6 +5,8 @@ import time
 import numpy as np
 from astropy.table import Table
 import astropy.io.fits as fits
+import matplotlib.pyplot as plt
+
 from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
 
@@ -556,3 +558,19 @@ def create_kinematics_image(hdu_segimg, tb_vel,
     hdulist.writeto(output_fits_name, clobber=True)
 
     return(velimg, errvelimg, sigimg, errsigimg)
+
+
+def ql_binspec(ibin, infile, ext_data=1, ext_var=2):
+    w, s, n = read_stacked_spectra(infile,
+                                   ext_data=ext_data,
+                                   ext_var=ext_var)
+
+    plt.figure()
+    plt.plot(w, s[ibin, :], '-', color='0.2')
+    plt.plot(w, n[ibin, :], '-', color='0.2')
+
+    plt.axhline(y=0, xmin=w[0], xmax=w[-1], linestyle='dashed')
+
+    plt.xlim(w[0], w[-1])
+
+    plt.show()

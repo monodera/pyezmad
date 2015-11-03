@@ -23,7 +23,8 @@ from .stellar_population import compute_equivalent_width
 
 
 class BinSpecAnalysis:
-    """A class to work with Voronoi binned spectra."""
+    """A class to work with Voronoi binned spectra.
+    """
     def __init__(self,
                  binspec=None,
                  voronoi_xy=None,
@@ -148,6 +149,3 @@ class BinSpecAnalysis:
     @property
     def eqw_img(self):
         return(self.__eqw_img)
-
-    # def get_eqw(self, line=None):
-    #     return(self.__eqw[line])
