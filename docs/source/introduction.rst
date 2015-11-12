@@ -23,6 +23,7 @@ Install
 * `Astroquery <http://astroquery.readthedocs.org/en/latest/>`_
 * `lmfit <http://cars9.uchicago.edu/software/python/lmfit/>`_
 * `seaborn <http://stanford.edu/~mwaskom/software/seaborn/>`_
+* `PyNeb <http://www.iac.es/proyecto/PyNeb/>`_
 * `mpdaf CoreLib <http://urania1.univ-lyon1.fr/mpdaf/chrome/site/DocCoreLib/index.html>`_
 
 All of them can be installed with ``pip``, e.g., ``pip install numpy``.
@@ -66,15 +67,21 @@ You can check if ``pyezmad`` is installed at a proper location.
 
 
 
-(Optional) If you are lazy to install anything by yourself, you can try my Python setup (assuming you use ``bash`` as login shell).
+(Optional) If you are lazy to install anything by yourself, you can try a Python setup under the MAD directory (assuming you use ``bash`` as login shell).
 
 .. code:: shell
 
-    # on finvarra
-    . /net/astrogate/export/astro/shared/MUSE/user/monodera/python_venv_finvarra/bin/activate
-    
-    # on theia
-    . /net/astrogate/export/astro/shared/MUSE/user/monodera/python_venv_theia/bin/activate
+    MADDIR="/net/astrogate/export/astro/shared/MAD"
+
+    case `hostname` in
+        finvarra|theia|eos|selene)
+            . ${MADDIR}/mad_pyvenv/bin/activate
+            ;;
+    esac
+
+    if [ -d "${MADDIR}/montage/bin" ]; then
+        PATH=${MADDIR}/montage/bin:$PATH
+    fi
 
 
 To go back to the original python environment, just type ``deactivate`` in the terminal.
