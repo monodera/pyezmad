@@ -11,6 +11,55 @@ from astroquery.irsa_dust import IrsaDust
 from .utilities import get_wavelength
 
 
+def correct_dust_binspec(w, spec, ebv, extcurve='CCM'):
+    """Correct dust extinction for binned spectra.
+
+    TODO: Need to handle error. There are more room for improvement.
+
+    Parameters
+    ----------
+    w : :py:class:`~numpy.ndarray`
+        Wavelength in angstrom
+    spec : :py:class:`~numpy.ndarray`
+        Input spectra. Now, the 2nd dimension must be wavelength.
+    ebv : :py:class:`~numpy.ndarray`
+        E(B-V)
+    extcuve : str, optional
+        Extinction curve. "CCM" or "Calzetti".
+
+    Returns
+    -------
+    spec_unred : :py:class:`~numpy.ndarray`
+        Extinction corrected spectra with the same shape as the input.
+    """
+
+    alam_av, rv = get_alam_av(w, extcurve=extcurve)
+
+    expo_corr_tile = np.empty_like(spec)
+    for i in range(spec.shape[0]):
+        expo_corr = 0.4 * ebv[i] * alam_av * rv
+        expo_corr_tile[i, :] = expo_corr
+
+    ext_factor = np.power(10., expo_corr_tile)
+    spec_unred = spec * ext_factor
+
+    return(spec_unred)
+
+
+def get_alam_av(wave, extcurve=None):
+
+    if extcurve in {'CCM', 'ccm'}:
+        alam_av1, rv = extinction_ccm89(wave, ret_rv=True)
+    elif extcurve in {'calzetti', 'Calzetti', 'Calz', 'calz'}:
+        alam_av1, rv = extinction_calz(wave, ret_rv=True)
+    elif extcurve is None:
+        alam_av1, rv = 0., 0.
+    else:
+        raise(ValueError("%s curve is not yet implemented." % extcurve))
+
+    return(alam_av1, rv)
+
+
 def ebv_balmer_decrement(r_obs, err=None,
                          line1='Halpha', line2='Hbeta',
                          extcurve=None, clip=True):
@@ -68,20 +117,33 @@ def extinction_ccm89(w, rv=3.1, ret_rv=False):
     including an update for the near-UV by O'Donnell (1994, ApJ, 422, 158).
     """
 
+    if isinstance(w, float) or isinstance(w, int):
+        w = np.array([w])
+
     x = 1.e4 / w  # convert to um^{-1}
     y = x - 1.82
 
-    if np.all(np.logical_and(x > 1.1, x < 3.3)):
+    a = np.zeros(w.size)
+    b = np.zeros(w.size)
+
+    idx_opt = np.where(np.logical_and(x > 1.1, x < 3.3))
+    idx_nir = np.where(np.logical_and(x > 0.3, x <= 1.1))
+
+    if idx_opt[0].size + idx_nir[0].size != w.size:
+        raise(ValueError("Some wavelength out of the range."))
+
+    if idx_opt[0].size > 0:
         # New coefficients from O'Donnell (1994)
         coeff_a = np.array([1., 0.104, -0.609, 0.701, 1.137,
                             -1.718, -0.827, 1.647, -0.505])
         coeff_b = np.array([0., 1.952, 2.908, -3.989, -7.985,
                             11.102, 5.491, -10.805, 3.347 ])
-    else:
-        raise(ValueError("Some wavelength out of the range."))
+        a[idx_opt] = polyval(y[idx_opt], coeff_a)
+        b[idx_opt] = polyval(y[idx_opt], coeff_b)
 
-    a = polyval(y, coeff_a)
-    b = polyval(y, coeff_b)
+    if idx_nir[0].size > 0.:
+        a[idx_nir] = 0.574 * np.power(x[idx_nir], 1.61)
+        b[idx_nir] = -0.527 * np.power(x[idx_nir], 1.61)
 
     alam_av = a + b / rv
 
@@ -93,10 +155,8 @@ def extinction_ccm89(w, rv=3.1, ret_rv=False):
 
 def extinction_calz(w, rv=4.05, ret_rv=False):
     """Calzetti (2000) extinction curve"""
-    print(type(w))
 
     if isinstance(w, float) is True:
-        print("here")
         w = np.array([w])
 
     x = w * 1.e-4  # angstrom to micron

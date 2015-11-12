@@ -5,6 +5,8 @@ import time
 import numpy as np
 from astropy.table import Table
 import astropy.io.fits as fits
+import matplotlib.pyplot as plt
+
 from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
 
@@ -108,7 +110,7 @@ def run_voronoi_binning(infile, outprefix,
     target_sn : float, optional
         Target S/N per pixel for Voronoi binning. The default is 50.
     quiet : bool, optional
-        Toggle ``quiet`` option in ``ppxf.voronoi_2d_binning()``.
+        Toggle ``quiet`` option in :py:func:`voronoi.voronoi_2d_binning.
 
     Returns
     -------
@@ -179,18 +181,18 @@ def run_voronoi_binning(infile, outprefix,
 
 def create_segmentation_image(tb_xy_fits, refimg_fits):
     """Create a segmentation image based on the output
-    from :py:meth:`run_voronoi_binning`.
+    from :py:func:`pyezmad.voronoi.run_voronoi_binning`.
 
     Parameters
     ----------
     tb_xy_fits : str
-        FITS output table from run_voronoi_binning
+        FITS output table from :py:func:`pyezmad.voronoi.run_voronoi_binning`.
     refimg_fits : str
         Reference FITS image (white-light image is just fine).
 
     Returns
     -------
-    binimg : :py:class:`numpy.ndarray`
+    binimg : :py:class:`~numpy.ndarray`
         A 2D numpy array with the same shape as the reference image
         storing Voronoi bin ID at each pixel.
     """
@@ -225,7 +227,7 @@ def create_value_image(segmentation_image, value):
 
     Parameters
     ----------
-    segmentation_image : :py:class:`numpy.ndarray`
+    segmentation_image : :py:class:`~numpy.ndarray`
         A 2D numpy array of Voronoi segmentation map
         (i.e., output from :py:meth:`create_segmentation_image`).
     value : array_like
@@ -234,7 +236,7 @@ def create_value_image(segmentation_image, value):
 
     Returns
     -------
-    valimg : :py:class:`numpy.ndarray`
+    valimg : :py:class:`~numpy.ndarray`
         A 2D numpy array with the same shape as the segmentation image
         storing ``value`` at each Voronoi bin.
     """
@@ -248,7 +250,7 @@ def create_value_image(segmentation_image, value):
     return(valimg)
 
 
-def read_stacked_spectra(infile):
+def read_stacked_spectra(infile, ext_data=1, ext_var=2):
     """Read Voronoi binned spectra into array.
 
     Parameters
@@ -256,20 +258,24 @@ def read_stacked_spectra(infile):
     infile : str
         Input FITS file to be processed.
         It must have a shape of ``(nbin, nwave)``.
+    ext_data : int or str, optional
+        Data extension
+    ext_var : int or str, optional
+        Variance extenstion
 
     Returns
     -------
-    wave : :py:class:`numpy.ndarray`
+    wave : :py:class:`~numpy.ndarray`
         Wavelenth array with a length of ``NAXIS1``.
-    data : :py:class:`numpy.ndarray`
+    data : :py:class:`~numpy.ndarray`
         Stacked spectra with a shape of ``(NAXIS2, NAXIS1) = (nbin, nwave)``.
-    noise: :py:class:`numpy.ndarray`
+    noise: :py:class:`~numpy.ndarray`
         Noise spectra with a shape of ``(NAXIS2, NAXIS1) = (nbin, nwave)``.
     """
 
     hdu = fits.open(infile)
     wave = get_wavelength(hdu, ext='FLUX', axis=1)
-    return(wave, hdu['FLUX'].data, np.sqrt(hdu['VAR'].data))
+    return(wave, hdu[ext_data].data, np.sqrt(hdu[ext_var].data))
 
 
 def stacking(fcube, ftable, fout):
@@ -319,15 +325,6 @@ def stacking(fcube, ftable, fout):
         stack_var_bin = np.array([cube.var[:, iy, ix]
                                   for iy, ix in zip(ybin, xbin)])
         stack_var_bin = np.nansum(stack_var_bin, axis=0)
-
-        # subcube_data_test = np.zeros(nwave)
-        # subcube_var_test = np.zeros(nwave)
-        # for j in xrange(tb_xy2bin['bin'][idx].size):
-        #     subcube_data_test += cube.data[:,tb_xy2bin['y'][idx][j],tb_xy2bin['x'][idx][j]]
-        #     subcube_var_test += cube.var[:,tb_xy2bin['y'][idx][j],tb_xy2bin['x'][idx][j]]
-        # ratio_data = subcube_data_test/stack_data_bin
-        # ratio_var = subcube_var_test/stack_var_bin
-        # print(i, tb_xy2bin['bin'][idx].size, np.median(ratio_data), np.median(ratio_var))
 
         stack_data_bin /= tb_xy2bin['bin'][idx].size
         stack_var_bin /= tb_xy2bin['bin'][idx].size**2
@@ -382,12 +379,12 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
     -------
     wave : array_like
         Wavelength.
-    flux : :py:class:`numpy.ndarray`
+    flux : :py:class:`~numpy.ndarray`
         Continuum subtracted 2D array of Voronoi binned spectra
         with a shape of ``(nbins, nwave)``.
-    var : :py:class:`numpy.ndarray`
+    var : :py:class:`~numpy.ndarray`
         2D array of Voronoi binned variance with a shape of ``(nbins, nwave)``.
-    header : :py:class:`astropy.io.fits.Header`
+    header : :py:class:`~astropy.io.fits.Header`
         FITS header object copied from the input file.
     """
 
@@ -436,24 +433,27 @@ def subtract_emission_line(voronoi_binspec_file,
 
     Returns
     -------
-    hdulist : :astropy:class:`astropy.io.fits.HDUList`
+    hdulist : :py:class:`~astropy.io.fits.HDUList`
         HDUList object containging emission line subtracted spectra, variance,
         and emission line models in 1st, 2nd, and 3rd extensions, respectively.
         Headers are copied from the input FITS file.
-    wave : numpy.ndarray
+    wave : :py:class:`~numpy.ndarray`
         Wavelength array reconstructed from the input header information.
-    spec_out : numpy.ndarray
+    spec_out : :py:class:`~numpy.ndarray`
         Emission line subtracted spectra.
-    var : numpy.ndarray
+    var : :py:class:`~numpy.ndarray`
         Variance spectra, copied from the input cube
         (i.e., assuming noise less emission line models).
-    emspec : numpy.ndarray
+    emspec : :py:class:`~numpy.ndarray`
         Reconstruncted emission line spectra.
     """
+    hdu = fits.open(voronoi_binspec_file)
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
 
     hdu_em = fits.open(emission_line_file)
+
+    # cont_model = hdu_em[0].header['MAD EMFIT CONT_MODEL']
 
     nbins = flux.shape[0]
 
@@ -486,13 +486,13 @@ def subtract_emission_line(voronoi_binspec_file,
     spec_out = flux - emspec
 
     hdulist = fits.HDUList([
-        fits.PrimaryHDU(header=hdu_em[0].header),
+        fits.PrimaryHDU(header=hdu[0].header),
         fits.ImageHDU(data=spec_out,
-                      header=hdu_em[1].header, name='FLUX'),
+                      header=hdu[1].header, name='FLUX'),
         fits.ImageHDU(data=var,
-                      header=hdu_em[2].header, name='VAR'),
+                      header=hdu[2].header, name='VAR'),
         fits.ImageHDU(data=emspec,
-                      header=hdu_em[1].header, name='EMSPEC')])
+                      header=hdu[1].header, name='EMSPEC')])
 
     return(hdulist, wave, spec_out, var, emspec)
 
@@ -503,9 +503,9 @@ def create_kinematics_image(hdu_segimg, tb_vel,
 
     Parameters
     ----------
-    hdu_segimg : :py:class:`astropy.io.fits.HDUList`
+    hdu_segimg : :py:class:`~astropy.io.fits.HDUList`
         HDUList of the segmentation image.
-    tb_vel : :py:class:`astropy.table.Table`
+    tb_vel : :py:class:`~astropy.table.Table`
         Table object containing information on kinematics.
         The table must contain ``vel``, ``sig``, ``errvel``,
         and ``errsig`` keys.
@@ -518,13 +518,13 @@ def create_kinematics_image(hdu_segimg, tb_vel,
 
     Returns
     -------
-    velimg : :py:class:`numpy.ndarray`
+    velimg : :py:class:`~numpy.ndarray`
         Velocity image.
-    errvelimg : :py:class:`numpy.ndarray`
+    errvelimg : :py:class:`~numpy.ndarray`
         Velocity error image.
-    sigimg : :py:class:`numpy.ndarray`
+    sigimg : :py:class:`~numpy.ndarray`
         Velocity dispersion image.
-    errsigimg : :py:class:`numpy.ndarray`
+    errsigimg : :py:class:`~numpy.ndarray`
         Velocity dispersion error image.
 
     These images have the identical shape to the input segmentation image.
@@ -558,3 +558,19 @@ def create_kinematics_image(hdu_segimg, tb_vel,
     hdulist.writeto(output_fits_name, clobber=True)
 
     return(velimg, errvelimg, sigimg, errsigimg)
+
+
+def ql_binspec(ibin, infile, ext_data=1, ext_var=2):
+    w, s, n = read_stacked_spectra(infile,
+                                   ext_data=ext_data,
+                                   ext_var=ext_var)
+
+    plt.figure()
+    plt.plot(w, s[ibin, :], '-', color='0.2')
+    plt.plot(w, n[ibin, :], '-', color='0.2')
+
+    plt.axhline(y=0, xmin=w[0], xmax=w[-1], linestyle='dashed')
+
+    plt.xlim(w[0], w[-1])
+
+    plt.show()

@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import time
 import os.path
 import numpy as np
 
@@ -126,19 +127,22 @@ def gaussian(x, flux, vel, sig, lam):
 
     """
 
-    lcen = lam * (1. + vel / c.to('km/s').value)
-    sig_inst = muse_fwhm(lcen) / sigma2fwhm
-    sig_tot = np.sqrt(sig**2 + sig_inst**2)
+    lcen = lam * (1. + vel / c.to('km/s').value)  # angstrom
+    # km/s
+    sig_inst = c.to('km/s').value * (muse_fwhm(lcen) / sigma2fwhm) / lcen
+    sig_tot = np.sqrt(sig**2 + sig_inst**2)  # km/s
     # lsig = lcen * sig / c.to('km/s').value
-    lsig = lcen * sig_tot / c.to('km/s').value
-    g = flux / np.sqrt(2. * np.pi) / lsig * np.exp(-(x - lcen)**2 / lsig**2)
+    lsig = lcen * sig_tot / c.to('km/s').value  # angstrom
+
+    g = (flux / np.sqrt(2. * np.pi) / lsig) \
+        * np.exp(-(x - lcen)**2 / 2. / lsig**2)
 
     return(g)
 
 
 def fit_single_spec(wave, flux, var, vel_star, linelist_name,
-                    dwfit=100., is_checkeach=False,
-                    instrument=None, linelist=None):
+                    dwfit=100., cont_model='linear', is_checkeach=False,
+                    instrument=None, linelist=None, verbose=True, maxfev=None):
     """Fit Gaussian(s) to a single spectrum.
 
     Parameters
@@ -168,6 +172,13 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
         Master line list. Each entry in ``linelist_name``
         must be present in the ``linelist`` to
         extract the wavelength of it.
+    cont_model : str, optional
+        Continuum model. Either ``linear`` or ``quadratic`` is supported.
+    maxfev : int
+        Maximum number of iteratin for :py:func:`scipy.optimize.leastsq`.
+        The default is set to be 1000, but not sure what is the best
+        (cf. the default of :py:meth:`lmfit.Model.fit` is 2000*(nvar+1)
+        where ``nvar`` is the number of variables).
 
     Returns
     -------
@@ -184,10 +195,14 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
         out_fitting_group = {'flux': {},
                              'eflux': {},
-                             'vel': 0., 'sig': 0.,
-                             'evel': 0., 'esig': 0.,
-                             'cont_a': 0., 'cont_b': 0., 'cont_c': 0.,
-                             'chi2': 0.}
+                             'vel': np.nan, 'sig': np.nan,
+                             'evel': np.nan, 'esig': np.nan,
+                             'cont_slope': np.nan,
+                             'cont_intercept': np.nan,
+                             'cont_a': np.nan,
+                             'cont_b': np.nan,
+                             'cont_c': np.nan,
+                             'chi2': np.nan}
 
         idx_fit = np.zeros(wave.size, dtype=np.bool)
 
@@ -205,9 +220,23 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
         models = {}
 
-        # models['cont'] = lmfit.models.LinearModel(name='cont')
-        models['cont'] = lmfit.models.QuadraticModel(name='cont',
-                                                     prefix='cont_')
+        if cont_model == 'const':
+            models['cont'] = lmfit.models.ConstantModel(name='cont',
+                                                        prefix='cont_',
+                                                        missing='drop')
+        elif cont_model == 'linear':
+            models['cont'] = lmfit.models.LinearModel(name='cont',
+                                                      prefix='cont_',
+                                                      missing='drop')
+        elif cont_model == 'quadratic':
+            models['cont'] = lmfit.models.QuadraticModel(name='cont',
+                                                         prefix='cont_',
+                                                         missing='drop')
+
+        else:
+            raise(
+                ValueError(
+                    "cont_model must be 'const', 'linear' or 'quadratic'."))
 
         pars = models['cont'].guess(y * 0., x=x)
 
@@ -217,9 +246,10 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
             lname = linelist_name[j][k]
             models[lname] = lmfit.models.Model(gaussian,
                                                prefix=lname + '_',
+                                               missing='drop',
                                                name=lname)
             pars.update(models[lname].make_params())
-            pars[lname + '_flux'].set(500., min=0.)
+            pars[lname + '_flux'].set(250., min=0.)
             pars[lname + '_lam'].set(linelist[lname], vary=False)
 
             if k > 0:
@@ -237,9 +267,16 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
             model += models[lname]
 
-        res_fit = model.fit(y, pars, x=x, weights=w)
+        res_fit = model.fit(y, pars, x=x, weights=w,
+                            fit_kws=dict(maxfev=maxfev),
+                            verbose=verbose)
 
-        print(res_fit.fit_report(min_correl=0.5))
+        # print(res_fit.fit_report(min_correl=0.5))
+        print(res_fit.fit_report(show_correl=False))
+        print("res_fit.nfev = ", res_fit.nfev, end='\n')
+        print("res_fit.success = ", res_fit.success, end='\n')
+        print("res_fit.ier = %i" % res_fit.ier, end='\n')
+        print("res_fit.lmdif_message: %s" % res_fit.lmdif_message, end='\n')
 
         # NOTE: slightly confusing...
         # lname can be carried over to this point
@@ -250,12 +287,25 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
         out_fitting_group['errvel'] = res_fit.params[lname + '_vel'].stderr
         out_fitting_group['errsig'] = res_fit.params[lname + '_sig'].stderr
 
-        out_fitting_group['cont_a'] = res_fit.best_values['cont_a']
-        out_fitting_group['cont_b'] = res_fit.best_values['cont_b']
-        out_fitting_group['cont_c'] = res_fit.best_values['cont_c']
+        if cont_model == 'const':
+            out_fitting_group['cont_c'] = res_fit.best_values['cont_c']
+        elif cont_model == 'linear':
+            out_fitting_group['cont_slope'] \
+                = res_fit.best_values['cont_slope']
+            out_fitting_group['cont_intercept'] \
+                = res_fit.best_values['cont_intercept']
+        elif cont_model == 'quadratic':
+            out_fitting_group['cont_a'] = res_fit.best_values['cont_a']
+            out_fitting_group['cont_b'] = res_fit.best_values['cont_b']
+            out_fitting_group['cont_c'] = res_fit.best_values['cont_c']
 
         out_fitting_group['redchi'] = res_fit.redchi
         out_fitting_group['chisqr'] = res_fit.chisqr
+
+        out_fitting_group['nfev'] = res_fit.nfev
+        out_fitting_group['success'] = res_fit.success
+        out_fitting_group['ier'] = res_fit.ier
+        out_fitting_group['lmdif_message'] = res_fit.lmdif_message
 
         for k in range(len(linelist_name[j])):
             lname = linelist_name[j][k]
@@ -279,9 +329,12 @@ def emission_line_fitting(voronoi_binspec_file,
                           ppxf_output_file,
                           outfile,
                           linelist_name,
+                          cont_model='linear',
+                          maxfev=1000.,
                           is_checkeach=False,
                           instrument='MUSE',
-                          master_linelist=None):
+                          master_linelist=None,
+                          verbose=True):
     """Fit emission lines to (continuum-subtracted) spectra
     with Voronoi output format.
 
@@ -303,7 +356,10 @@ def emission_line_fitting(voronoi_binspec_file,
         When grouped with square brackets,
         they will be fit simultaneously by assuming
         identical line-of-sight velocity and velocity dispersion.
-    instrument : str
+    cont_model : str, optional
+        Continuum model.
+        Either ``const``, ``linear`` or ``quadratic`` is supported.
+    instrument : str, optional
         Name of the instrument to subtract instrumental resolution.
         Only MUSE is supported now.
     master_linelist : dictionary, optional
@@ -311,6 +367,8 @@ def emission_line_fitting(voronoi_binspec_file,
         By default, the list is loaded from
         a file in the ``database`` directory
         of the ``pyezmad`` distribution.
+    verbose : bool, optional
+        Print more details.
 
     Returns
     -------
@@ -318,6 +376,8 @@ def emission_line_fitting(voronoi_binspec_file,
         Output table as aHDUList object. It's very messy format...
         Each HDU contains the fitting result for each emission line group.
     """
+
+    t_begin = time.time()
 
     if instrument != "MUSE":
         raise(ValueError("Only MUSE is supported as instrument."))
@@ -335,17 +395,36 @@ def emission_line_fitting(voronoi_binspec_file,
 
     # It can be parallelized here.  Any volunteers?
     for i in xrange(flux.shape[0]):
+
+        if i % 100 == 0:
+            t_mid = time.time()
+            print("# \n" +
+                  "# %i-th spectra is going to be fit\n" % (i) +
+                  "%f minutes elapsed for the emission line fitting."
+                  % ((t_mid - t_begin) / 60.))
+
         res_fitting[i] = fit_single_spec(wave,
                                          flux[i, :],
                                          var[i, :],
                                          tb_ppxf['vel'][i],
                                          linelist_name,
+                                         cont_model=cont_model,
+                                         maxfev=maxfev,
                                          is_checkeach=is_checkeach,
                                          instrument=instrument,
-                                         linelist=master_linelist)
+                                         linelist=master_linelist,
+                                         verbose=verbose)
+        print("# \n" +
+              "# %i-th spectra has just finished\n" % i, end='\n')
 
     prihdu = fits.PrimaryHDU()
+    prihdu.header['MAD EMFIT CONT_MODEL'] \
+        = (cont_model, "continuum model for fitting.")
+    prihdu.header['MAD EMFIT MAX_FEV'] \
+        = (maxfev, "max iteration for fitting")
+
     hdu_arr = []
+
     for j in range(len(linelist_name)):
         cols = []
         for k in range(len(linelist_name[j])):
@@ -362,12 +441,30 @@ def emission_line_fitting(voronoi_binspec_file,
             cols.append(col_err)
 
         for key in ['vel', 'sig', 'errvel', 'errsig',
-                    'cont_a', 'cont_b', 'cont_c', 'redchi', 'chisqr']:
+                    'cont_a', 'cont_b', 'cont_c',
+                    'cont_intercept', 'cont_slope',
+                    'redchi', 'chisqr']:
             cols.append(
                 fits.Column(
                     name=key, format='D',
                     array=np.array([res_fitting[i][j][key]
                                     for i in xrange(flux.shape[0])])))
+
+        cols.append(
+            fits.Column(
+                name='nfev', format='I',
+                array=np.array([res_fitting[i][j]['nfev']
+                                for i in xrange(flux.shape[0])])))
+        cols.append(
+            fits.Column(
+                name='success', format='L',
+                array=np.array([res_fitting[i][j]['success']
+                                for i in xrange(flux.shape[0])])))
+        cols.append(
+            fits.Column(
+                name='ier', format='I',
+                array=np.array([res_fitting[i][j]['ier']
+                                for i in xrange(flux.shape[0])])))
 
         tbhdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols),
                                               name='GROUP%i' % j)
@@ -385,29 +482,5 @@ def emission_line_fitting(voronoi_binspec_file,
 
 
 if __name__ == '__main__':
-
-    linelist_name = [['Hbeta', 'OIII4959', 'OIII5007'],  # these 3 lines are fit together
-                     ['NII6548', 'NII6583', 'Halpha'],
-                     ['SII6717', 'SII6731']]
-
-    voronoi_binspec_file = os.path.join(
-        '/net/astrogate/export/astro/shared',
-        'MUSE/user/monodera/',
-        'mad_work/ngc4980'
-        'ppxf_run',
-        'ngc4980_voronoi_stack_sn50_emspec.fits')
-
-    ppxf_output_file = os.path.join(
-        '/net/astrogate/export/astro/shared',
-        'MUSE/user/monodera/',
-        'mad_work/ngc4980',
-        'ppxf_run',
-        'ngc4980_ppxf_vel_sn50.fits')
-
-    outfile = 'ngc4980_voronoi_out_emprop_sn50.fits'
-
-    tbhdulist = emission_line_fitting(voronoi_binspec_file,
-                                      ppxf_output_file,
-                                      outfile,
-                                      linelist_name,
-                                      is_checkeach=True)
+    print("Nothing done.")
+    exit()

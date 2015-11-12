@@ -24,24 +24,96 @@ import ppxf_util as util
 from .voronoi import read_stacked_spectra, create_value_image
 from .utilities import get_wavelength, read_emission_linelist,\
     muse_fwhm, sigma2fwhm
+# from .analysis_binned_spectra import BinSpecAnalysis
+from .stellar_population import compute_ppxf_stellar_population
 
 
-class Ppxf:
-    def __init__(self, ppxf=None, segimg=None):
+class Ppxf():
+    def __init__(self, ppxf=None, segimg=None, mask=None, mask_img=None,
+                 ppxf_dir1=None, ppxf_prefix1=None,
+                 ppxf_dir2=None, ppxf_prefix2=None):
         if ppxf is not None:
-            self.load_data(ppxf)
             self.__segimg = segimg
+            self.__mask = mask
+            self.__mask_img = mask_img
+            self.dir1 = ppxf_dir1
+            self.prefix1 = ppxf_prefix1
+            self.dir2 = ppxf_dir2
+            self.prefix2 = ppxf_prefix2
+
+            self.load_data(ppxf)
 
     def load_data(self, ppxf):
         self.__tb = Table.read(ppxf)
+
+        self.__chisq1 = np.empty(self.__tb['vel'].size) + np.nan
+        self.__chisq2 = np.empty(self.__tb['vel'].size) + np.nan
+
+        for i in range(self.__tb['vel'].size):
+
+            if self.dir1 is not None:
+                file_pp = os.path.join(self.dir1,
+                                       self.prefix1 + '_%06i.npy' % i)
+                pp = np.load(file_pp)[0]
+                if pp is not None:
+                    self.__chisq1[i] = pp.chi2
+            if self.dir2 is not None:
+                file_pp = os.path.join(self.dir2,
+                                       self.prefix2 + '_%06i.npy' % i)
+                pp = np.load(file_pp)[0]
+                if pp is not None:
+                    self.__chisq2[i] = pp.chi2
+
+        if self.__mask is not None:
+            self.__tb['vel'][self.__mask] = np.nan
+            self.__tb['errvel'][self.__mask] = np.nan
+            self.__tb['sig'][self.__mask] = np.nan
+            self.__tb['errsig'][self.__mask] = np.nan
+
+        self.__vel = self.__tb['vel']
+        self.__e_vel = self.__tb['errvel']
+        self.__sig = self.__tb['sig']
+        self.__e_sig = self.__tb['errsig']
 
     @property
     def tb(self):
         return(self.__tb)
 
     @property
+    def vel(self):
+        return(self.__vel)
+
+    @property
+    def e_vel(self):
+        return(self.__e_vel)
+
+    @property
+    def sig(self):
+        return(self.__sig)
+
+    @property
+    def e_sig(self):
+        return(self.__e_sig)
+
+    @property
     def segimg(self):
         return(self.__segimg)
+
+    @property
+    def chisq1(self):
+        return(self.__chisq1)
+
+    @property
+    def chisq2(self):
+        return(self.__chisq2)
+
+    @property
+    def mask(self):
+        return(self.__mask)
+
+    @property
+    def mask_img(self):
+        return(self.__mask_img)
 
     # create various maps
     def make_kinematics_img(self, vc=None):
@@ -59,6 +131,12 @@ class Ppxf:
         self.__e_sig_img = create_value_image(self.__segimg,
                                               self.__tb['errsig'])
 
+        if self.__mask_img is not None:
+            self.__vel_img[self.__mask_img] = np.nan
+            self.__e_vel_img[self.__mask_img] = np.nan
+            self.__sig_img[self.__mask_img] = np.nan
+            self.__e_sig_img[self.__mask_img] = np.nan
+
     @property
     def vel_img(self):
         return(self.__vel_img)
@@ -75,8 +153,85 @@ class Ppxf:
     def e_sig_img(self):
         return(self.__e_sig_img)
 
+    def calc_stellarpop(self,
+                        distance,
+                        pp_dir=None,
+                        pp_prefix=None,
+                        parfile=None):
 
-def gaussian_filter1d(spec, sig):
+        if parfile is None:
+            raise(
+                ValueError(
+                    "A file listing log Age/Gyr, [Z/H], "
+                    "and stellar mass must be provided."))
+
+        if (pp_dir is None) and (self.dir2 is not None):
+            pp_dir = self.dir2
+        if (pp_prefix is None) and (self.prefix2 is not None):
+            pp_prefix = self.prefix2
+
+        self.__lage, self.__lmetal, self.__smd, self.__lsmd \
+            = compute_ppxf_stellar_population(self.__tb['vel'].size,
+                                              distance,
+                                              pp_dir,
+                                              pp_prefix,
+                                              parfile)
+
+        self.__lage_img = create_value_image(self.__segimg,
+                                             self.__lage)
+        self.__lmetal_img = create_value_image(self.__segimg,
+                                               self.__lmetal)
+        self.__smd_img = create_value_image(self.__segimg,
+                                            self.__smd)
+        self.__lsmd_img = create_value_image(self.__segimg,
+                                             self.__lsmd)
+
+        if self.__mask is not None:
+            self.__lage[self.__mask] = np.nan
+            self.__lmetal[self.__mask] = np.nan
+            self.__smd[self.__mask] = np.nan
+            self.__lsmd[self.__mask] = np.nan
+
+        if self.__mask_img is not None:
+            self.__lage_img[self.__mask_img] = np.nan
+            self.__lmetal_img[self.__mask_img] = np.nan
+            self.__smd_img[self.__mask_img] = np.nan
+            self.__lsmd_img[self.__mask_img] = np.nan
+
+    @property
+    def lage(self):
+        return(self.__lage)
+
+    @property
+    def lmetal(self):
+        return(self.__lmetal)
+
+    @property
+    def smd(self):
+        return(self.__smd)
+
+    @property
+    def lsmd(self):
+        return(self.__lsmd)
+
+    @property
+    def lage_img(self):
+        return(self.__lage_img)
+
+    @property
+    def lmetal_img(self):
+        return(self.__lmetal_img)
+
+    @property
+    def smd_img(self):
+        return(self.__smd_img)
+
+    @property
+    def lsmd_img(self):
+        return(self.__lsmd_img)
+
+
+def _gaussian_filter1d(spec, sig):
     """
     Convolve a spectrum by a Gaussian with different sigma for every
     pixel, given by the vector "sigma" with the same size as "spec".
@@ -200,7 +355,8 @@ def determine_goodpixels(logLam, lamRangeTemp, z, dv_mask=800.,
 
 
 def setup_spectral_library(file_template_list, velscale,
-                           FWHM_inst, FWHM_templ, normalize=False):
+                           FWHM_inst, FWHM_templ,
+                           wmin=None, wmax=None):
     """Set-up spectral library
 
     Parameters
@@ -216,8 +372,10 @@ def setup_spectral_library(file_template_list, velscale,
         Instrumental spectral resolution, FWHM in angstrom.
     FWHM_templ : float
         Spectral resolution of the templates, FWHM in angstrom.
-    normalize : bool, optional
-        Normalize templates when it's ``True``. The default is ``False``.
+    wmin : float, optional
+        Minimum wavelength to consider for templates.
+    wmax : float, optional
+        Maximum wavelength to consider for templates.
 
     Returns
     -------
@@ -238,8 +396,20 @@ def setup_spectral_library(file_template_list, velscale,
     ssp = hdu[0].data
     h2 = hdu[0].header
     wtempl = get_wavelength(hdu, ext=0, axis=1)
-    lamRange_temp = np.array([wtempl[0], wtempl[-1]])
-    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp, ssp,
+
+    if wmin is None:
+        wmin = wtempl[0]
+    else:
+        wmin = np.max([wtempl[0], wmin])
+    if wmax is None:
+        wmax = wtempl[-1]
+    else:
+        wmax = np.min([wtempl[-1], wmax])
+
+    idx_lam = np.logical_and(wtempl >= wmin, wtempl <= wmax)
+    lamRange_temp = np.array([wtempl[idx_lam][0], wtempl[idx_lam][-1]])
+    sspNew, logLam_temp, velscale = util.log_rebin(lamRange_temp,
+                                                   ssp[idx_lam],
                                                    velscale=velscale)
 
     templates = np.empty((sspNew.size, template_list.size))
@@ -259,38 +429,47 @@ def setup_spectral_library(file_template_list, velscale,
     # Sigma difference in pixels
     sigma = FWHM_diff / sigma2fwhm / h2['CDELT1']
 
+    # norm_templ = np.empty(template_list.size)
+
     for i in range(template_list.size):
         if i % 100 == 0:
-            print("%i/%i templates are processed." % (i, template_list.size))
+            print("....%4i/%4i templates are processed." %
+                  (i, template_list.size))
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
         # perform a convolution with wavelength-dependent sigma
-        if np.all(sigma > 0.):
-            ssp = gaussian_filter1d(ssp, sigma)
+        if np.any(sigma > 0.):
+            # print("Convolving to instrumental resolution...")
+            ssp = _gaussian_filter1d(ssp, sigma)
             # ssp = util.gaussian_filter1d(ssp, sigma)
         # if sigma > 0.:  # old version with scipy
         #     ssp = ndimage.gaussian_filter1d(ssp, sigma)
-        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp,
+        sspNew, logLam2, velscale = util.log_rebin(lamRange_temp, ssp[idx_lam],
                                                    velscale=velscale)
-        if normalize is True:
-            norm = np.nanmedian(sspNew)
-            sspNew /= norm
+
+        # norm = np.nanmedian(sspNew)
+        # sspNew /= norm
+        # norm_templ[i] = norm
 
         templates[:, i] = sspNew
 
-    print("%i/%i templates are processed." % (template_list.size, template_list.size))
+    print("%i/%i templates are processed." %
+          (template_list.size, template_list.size))
 
-    return templates, lamRange_temp, logLam_temp
+    return(templates, lamRange_temp, logLam_temp)  # , norm_templ
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                                     temp_list=None,
                                     vel_init=1000., sigma_init=50.,
                                     dv_mask=200.,
-                                    wmin_fit=4800, wmax_fit=7000., n_thread=12,
+                                    wmin_fit=4800, wmax_fit=7000.,
+                                    dw_edge=100.,
+                                    n_thread=12,
+                                    ext_data=1, ext_var=2,
                                     FWHM_inst=None, FWHM_tem=2.51,
                                     ppxf_kwargs=None, linelist=None,
-                                    is_mask_telluric=True, normalize=False):
+                                    is_mask_telluric=True):
     """Run pPXF for all Voronoi binned spectra made with
     :py:meth:`pyezmad.voronoi.stack`.
 
@@ -324,8 +503,16 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         Minimum wavelength to run pPXF.
     wmax_fit : float, optional
         Maximum wavelength to run pPXF.
+    dw_edge : float, optional
+        Wavelengths additionally considered for templates.
+        Templates from `wmin_fit-dw_edge` to `wmax_fit+dw_edge`
+        will be considered. The default is 100 A.
     n_thread : int, optional
         Number of processes to be executed in parallel.
+    ext_data : int or str, optional
+        Data extension.
+    ext_variance : int or str, optional
+        Variance extension.
     FWHM_inst : array_like, optional
         Instrumental resolution in angstrom in FWHM.
         If it's ``None``, the MUSE resolution will be computed
@@ -339,14 +526,14 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
     is_mask_telluric : bool, optional
         Flag to determine whether to mask telluric absorption band or not.
-    normalize : bool, optional
-        Normalize templates when it's ``True``. The default is ``False``.
     """
 
     if not os.path.exists(npy_dir):
         os.mkdir(npy_dir)
 
-    wave0, galaxy0, noise0 = read_stacked_spectra(infile)
+    wave0, galaxy0, noise0 = read_stacked_spectra(infile,
+                                                  ext_data=ext_data,
+                                                  ext_var=ext_var)
     nbins = galaxy0.shape[0]
 
     # ispec = 0 # absorption dominated spectra
@@ -361,13 +548,11 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         = util.log_rebin(lamRange_galaxy, galaxy0[0, mask])
 
     # ------------------- Setup templates -----------------------
-
     print("Preparing templates")
     stars_templates, lamRange_temp, logLam_temp \
-        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem, normalize=normalize)
-    # stars_templates /= np.median(stars_templates)
-    # Normalizes stellar templates by a scalar
-
+        = setup_spectral_library(temp_list, velscale, FWHM_inst, FWHM_tem,
+                                 wmin=wmin_fit - dw_edge,
+                                 wmax=wmax_fit + dw_edge)
     # -----------------------------------------------------------
 
     dv = (np.log(lamRange_temp[0]) - np.log(wave[0])) * c.to('km/s').value
@@ -390,7 +575,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
         for ibin in np.arange(bins_begin, bins_end):
             if (ibin - bins_begin + 1) % 10 == 0:
-                print("%f %% finished [%i:%i] " %
+                print("....%6.3f %% finished [%i:%i] " %
                       ((ibin - bins_begin) * 1. /
                        ((bins_end - bins_begin) * 1.) * 100.,
                        bins_begin, bins_end))
@@ -401,23 +586,39 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
                 = util.log_rebin(lamRange_galaxy, noise0[ibin, mask]**2)
             noise = np.sqrt(noise2)
 
+            # norm_galaxy = np.nanmedian(galaxy)
+            # galaxy /= norm_galaxy
+            # noise /= norm_galaxy
+
+            pp_out = os.path.join(npy_dir, npy_prefix + '_%06i.npy' % (ibin))
+
             t_begin_each = time.time()
-            pp = ppxf(stars_templates, galaxy, noise, velscale,
-                      start=[vel_init, sigma_init],
-                      lam=np.exp(logLam_galaxy),
-                      goodpixels=goodPixels, vsyst=dv,
-                      **ppxf_keydic)
-            t_end_each = time.time()
-            if not ppxf_keydic['quiet']:
-                print("Time elapsed for a single run %f [seconds]"
-                      % (t_end_each - t_begin_each))
+            try:
+                pp = ppxf(stars_templates, galaxy, noise, velscale,
+                          start=[vel_init, sigma_init],
+                          lam=np.exp(logLam_galaxy),
+                          goodpixels=goodPixels, vsyst=dv,
+                          **ppxf_keydic)
+                t_end_each = time.time()
+                if not ppxf_keydic['quiet']:
+                    print("....Time elapsed for %i-th bin: %.2f [seconds]"
+                          % (ibin, t_end_each - t_begin_each))
 
-            pp.star = None
-            pp.star_rfft = None
-            pp.matrix = None
+                # pp.weights *= (norm_galaxy * norm_templ)
+                # pp.bestfit *= norm_galaxy
+                # pp.galaxy *= norm_galaxy
+                # pp.noise *= norm_galaxy
 
-            np.save(os.path.join(npy_dir, npy_prefix + '_%06i.npy' % (ibin)),
-                    np.array([pp], dtype=np.object))
+                pp.star = None
+                pp.star_rfft = None
+                pp.matrix = None
+
+                np.save(pp_out, np.array([pp], dtype=np.object))
+            except:
+                print("Unexpected error:", sys.exc_info())
+                print("pPXF failed at bin %i" % ibin)
+                print("An array containing None is saved as %s" % pp_out)
+                np.save(pp_out, np.array([None], dtype=np.object))
 
     #
     # parallelization
@@ -427,7 +628,15 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     bins_begin = np.arange(ispec_start, ispec_end, nobj_per_proc)
     bins_end = bins_begin + nobj_per_proc
     bins_end[-1] = ispec_end
-    print(bins_begin, bins_end)
+
+    print("pPXF will run on %i threads in parallel." % n_thread)
+    print("Bins are split as follows.")
+    print("=============")
+    print(" Start    End")
+    print("-------------")
+    for b, e in zip(bins_begin, bins_end):
+        print("%6i %6i" % (b, e))
+    print("-------------")
 
     processes = [Process(target=run_ppxf_multiprocess,
                          args=(bins_begin[i], bins_end[i]))
@@ -437,6 +646,10 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
 
     for p in processes:
         p.start()
+        # - have some sleep before submitting next process.
+        # - not sure this helps, but sometimes it make pipe error,
+        #   so I'm trying to do it. Maximum n_thread*1 sec loss, no problem.
+        time.sleep(1)
 
     for p in processes:
         p.join()
@@ -485,10 +698,16 @@ def ppxf_npy2array(ppxf_npy_dir, ppxf_npy_prefix):
                               ppxf_npy_prefix + '_%06i.npy' % ibin)
         if os.path.exists(pp_npy) is True:
             pp = np.load(pp_npy)[0]
-            vel.append(pp.sol[0])
-            sig.append(pp.sol[1])
-            errvel.append(pp.error[0] * np.sqrt(pp.chi2))
-            errsig.append(pp.error[1] * np.sqrt(pp.chi2))
+            if pp is None:
+                vel.append(np.nan)
+                sig.append(np.nan)
+                errvel.append(np.nan)
+                errsig.append(np.nan)
+            else:
+                vel.append(pp.sol[0])
+                sig.append(pp.sol[1])
+                errvel.append(pp.error[0] * np.sqrt(pp.chi2))
+                errsig.append(pp.error[1] * np.sqrt(pp.chi2))
         else:
             break
         ibin += 1
@@ -554,6 +773,7 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
     ax = fig.add_subplot(1, 1, 1)
     ax.plot(pp.lam, pp.galaxy, '-', color='k')
     ax.plot(pp.lam, pp.bestfit, '-', color='tomato', lw=2, alpha=0.7)
+    ax.fill_between(pp.lam, pp.noise, y2=0, color='dodgerblue', alpha=0.7)
     # ax.plot(pp.lam, residual, '-', color='k')
 
     residual_fit = residual.copy()
@@ -576,11 +796,3 @@ def show_output(ibin, voronoi_binspec_file, ppxf_npy_dir, ppxf_npy_prefix):
 
 if __name__ == '__main__':
     print("do nothing")
-# ssp_hr_elodie31_kroupa_tracksZ0.0001.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.2M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.0004.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:33 ssp_hr_elodie31_kroupa_tracksZ0.004.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.008.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.02.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.1M Oct 22 16:34 ssp_hr_elodie31_kroupa_tracksZ0.05.dat
-# -rw-rw-r--+ 1 monodera astcarol 3.0M Oct 22 16:35 ssp_hr_elodie31_kroupa_tracksZ0.1.dat
-# -rw-rw-r--+ 1 monodera astcarol  418 Oct 22 16:35 ssp_hr_elodie31_kroupa_SSPs.dat

@@ -16,8 +16,17 @@ import matplotlib.cm as cm
 
 import pyezmad
 
+# try:
+#     from bottleneck import (nansum, nanmax, nanargmin,
+#                             nanmean, nanmedian)
+# except ImportError:
+from numpy import (nansum, nanmax, nanargmin,
+                   nanmean, nanmedian)
+
+
 # maybe there is a better way to set this number...
-sigma2fwhm = 2.3548200
+# sigma2fwhm = 2.3548200
+sigma2fwhm = 2. * np.sqrt(2. * np.log(2.))
 
 
 def error_fraction(x1, x2, ex1, ex2):
@@ -26,6 +35,19 @@ def error_fraction(x1, x2, ex1, ex2):
 
     err2 = (ex1 / x2)**2 + (x1 * ex2 / x2**2)**2
     err = np.sqrt(err2)
+
+    return(err)
+
+
+def error_log10_fraction(x1, x2, ex1, ex2):
+    """Compute error of log10(x1/x2)
+    when errors of x1 and x2 are given.
+    """
+
+    # err2 = (ex1 / x2)**2 + (x1 * ex2 / x2**2)**2
+    # err = np.sqrt(err2)
+
+    err = error_fraction(x1, x2, ex1, ex2) / (x1 / x2) / np.log(10.)
 
     return(err)
 
@@ -111,7 +133,7 @@ def search_nearest_index(x, x0):
     index : int
        Index value for which (x-x0) is minimized.
     """
-    return(np.argmin(np.abs(x - x0)))
+    return(nanargmin(np.abs(x - x0)))
 
 
 def create_whitelight_image(infile, prefix_out,
@@ -165,7 +187,11 @@ def create_whitelight_image(infile, prefix_out,
     iw_begin = search_nearest_index(w, w_begin)
     iw_end = search_nearest_index(w, w_end)
 
-    wi = np.nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
+    # iw_begin[~np.isnan(iw_begin)] = np.median(iw_begin)
+    # iw_end[~np.isnan(iw_end)] = np.median(iw_end)
+
+    # wi = np.nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
+    wi = nansum(hdu[ext].data[iw_begin:iw_end, :, :], axis=0)
 
     if is_save is True:
         fits.writeto(prefix_out + '.fits', wi, hdu[ext].header, clobber=True)
@@ -188,7 +214,8 @@ def create_whitelight_image(infile, prefix_out,
 
 def create_narrowband_image(hducube,
                             wcenter, dw=None,
-                            vel=None, vdisp=None, nsig=3.):
+                            vel=None, vdisp=None, nsig=3.,
+                            method='mean'):
     """Create a narrow band image.  Possibiilty to input velocity structures.
 
     Parameters
@@ -210,6 +237,9 @@ def create_narrowband_image(hducube,
     nsig : int or float
         Narrow-band extraction is carried out to ``nsig``
         times the velocity dispersion.
+    method : str,optional
+        Method to compute values at each pixel.
+        Supported methods are ``mean``, ``median`` and ``sum``.
 
     Returns
     -------
@@ -220,8 +250,8 @@ def create_narrowband_image(hducube,
     h = hducube[1].header
 
     wcube = get_wavelength(hducube, axis=3)
-    nbimg = np.empty((h['NAXIS2'], h['NAXIS1']))
-    maskimg = np.nanmax(hducube[1].data, axis=0)
+    nbimg = np.zeros((h['NAXIS2'], h['NAXIS1']))
+    maskimg = nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
 
     if vel is None:
@@ -231,13 +261,15 @@ def create_narrowband_image(hducube,
     else:
         if isinstance(vel, np.ndarray) is False:
             vel = np.ones_like(nbimg) * vel
-        zz = (1. + vel * u.km / u.s / c.to('km / s'))
+        # zz = (1. + vel * u.km / u.s / c.to('km / s'))
+        zz = (1. + vel / c.to('km / s').value)
         ww = wcenter * zz
 
     if dw is None:
         if isinstance(vdisp, np.ndarray) is False:
             vdisp = np.ones_like(nbimg) * vdisp
-        dwave = (vdisp * u.km / u.s) / c.to('km / s') * ww * nsig
+        # ndwave = (vdisp * u.km / u.s) / c.to('km / s') * ww * nsig
+        dwave = vdisp / c.to('km / s').value * ww * nsig
     elif vdisp is None:
         dwave = dw * np.ones_like(nbimg)
         zz = 0.
@@ -247,22 +279,59 @@ def create_narrowband_image(hducube,
 
     wmin, wmax = ww - dwave, ww + dwave
 
+    wmin_med = nanmedian(wmin)
+    wmax_med = nanmedian(wmax)
+
+    if method == 'median':
+        f_reduce = nanmedian
+    elif method == 'mean':
+        f_reduce = nanmean
+    elif method == 'sum':
+        f_reduce = nansum
+    else:
+        raise(KeyError("method=%s is not supported. "
+                       "Choose one from ['median', 'mean' (default), 'sum']"))
+
     # FIXME: Looping is very slow in Python. There must be more efficient way.
     for ix in xrange(h['NAXIS1']):
         for iy in xrange(h['NAXIS2']):
-            if np.isnan(maskimg[iy, ix]) is True:
+
+            if np.isnan(maskimg[iy, ix]):
                 continue
-            idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
-            idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
+
+            # print(ix, iy, wmin[iy, ix])
+
+            if np.isnan(wmin[iy, ix]):
+                idx_wmin = search_nearest_index(
+                    wcube,
+                    np.nanmedian(wmin[np.max([0, iy - 3]):
+                                      np.min([iy + 3, h['NAXIS2']]),
+                                      np.max([0, ix - 3]):
+                                      np.min([ix + 3, h['NAXIS1']])]))
+            else:
+                idx_wmin = search_nearest_index(wcube, wmin[iy, ix])
+
+            if np.isnan(wmax[iy, ix]):
+                # idx_wmax = search_nearest_index(wcube, wmax_med)
+                idx_wmax = search_nearest_index(
+                    wcube,
+                    np.nanmedian(wmax[np.max([0, iy - 3]):
+                                      np.min([iy + 3, h['NAXIS2']]),
+                                      np.max([0, ix - 3]):
+                                      np.min([ix + 3, h['NAXIS1']])]))
+            else:
+                idx_wmax = search_nearest_index(wcube, wmax[iy, ix])
+
             tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, iy, ix]
-            nbimg[iy, ix] = np.nansum(tmpspec)
+            # nbimg[iy, ix] = nansum(tmpspec)
+            nbimg[iy, ix] = f_reduce(tmpspec)
 
     nbimg[np.isnan(maskimg)] = np.nan
 
     return(nbimg)
 
 
-def create_narrowband_image_simple(hducube, wcenter, dw):
+def create_narrowband_image_simple(hducube, wcenter, dw, method='mean'):
     """Create a narrow band image in a simple way.
 
     Parameters
@@ -274,6 +343,9 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     dw :
         Extraction width in angstrom.
         Narrow-band image will be extracted for ``wcenter+/-dw``.
+    method : str,optional
+        Method to compute values at each pixel.
+        Supported methods are ``mean``, ``median`` and ``sum``.
 
     Returns
     -------
@@ -286,7 +358,7 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     wcube = get_wavelength(hducube, axis=3)
 
     nbimg = np.empty((h['NAXIS2'], h['NAXIS1']))
-    maskimg = np.nanmax(hducube[1].data, axis=0)
+    maskimg = nanmax(hducube[1].data, axis=0)
     maskimg[np.isfinite(maskimg)] = 1.
 
     wmin, wmax = wcenter - dw, wcenter + dw
@@ -294,11 +366,77 @@ def create_narrowband_image_simple(hducube, wcenter, dw):
     idx_wmin = search_nearest_index(wcube, wmin)
     idx_wmax = search_nearest_index(wcube, wmax)
     tmpspec = hducube[1].data[idx_wmin:idx_wmax + 1, :, :]
-    nbimg = np.nansum(tmpspec, axis=0)
+
+    if method == 'median':
+        f_reduce = nanmedian
+    elif method == 'mean':
+        f_reduce = nanmean
+    elif method == 'sum':
+        f_reduce = nansum
+    else:
+        raise(KeyError("method=%s is not supported. "
+                       "Choose one from ['median', 'mean' (default), 'sum']"))
+
+    # nbimg = nansum(tmpspec, axis=0)
+    nbimg = f_reduce(tmpspec, axis=0)
 
     nbimg[np.isnan(maskimg)] = np.nan
 
     return(nbimg)
+
+
+def pixel_to_arcsec(pixscale=0.2):
+    """A factor to convert from pixel to arcsec.
+
+    Parameters
+    ----------
+    pixscale : float, optional
+        Pixel scale in arcsec/pixel. The default is 0.2.
+
+    Returns
+    -------
+    float :
+        Scalar to convert from pixel to arcsec.
+        ``x[arcsec] = x[pixel] * pixel_to_arcsec()``.
+        It's obvious, but just in case...
+    """
+    return(pixscale)
+
+
+def pixel_to_physical(distance, scale='kpc', pixscale=0.2):
+    """A factor to convert from pixel to physical length (kpc or pc).
+
+    Parameters
+    ----------
+    distance : float
+        Distance to the object in Mpc (astropy.unit instance is recommended)
+    scale : {'kpc', 'pc'}, optional
+        Unit to be converted either per 'kpc' or 'pc' (Other units may work).
+        The default is 'kpc'.
+    pixscale: float
+        Pixel scale in arcsec/pixel The default is 0.2.
+
+    Returns
+    -------
+    float :
+        Scalar to convert from pixel to physical
+        angular size with a given unit.
+        For instance, one can convert radius :math:`r` (pixels)
+        to kpc by ``r *= pixel_to_physical(distance=15*u.Mpc)``.
+    """
+
+    if isinstance(distance, u.quantity.Quantity) is False:
+        distance *= u.Mpc
+        print("Warning: Distance is forced to be in astropy.units.Mpc")
+
+    pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
+
+    if scale == 'pc':
+        pixscale2physical *= distance.to('pc')
+    elif scale == 'kpc':
+        pixscale2physical *= distance.to('kpc')
+
+    return(pixscale2physical.value)
 
 
 def per_pixel_to_arcsec(pixscale=0.2):
@@ -312,7 +450,7 @@ def per_pixel_to_arcsec(pixscale=0.2):
     Returns
     -------
     float :
-        Scalar to convert from per sq. pixel to per sq. arcsec.
+        Scalar to convert from per pixel to per arcsec.
         For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix`
         to in :math:`erg/s/cm^2/A/arcsec^2`
         by ``f * per_pixel_to_arcsec()**2``.
@@ -337,24 +475,26 @@ def per_pixel_to_physical(distance, scale='kpc', pixscale=0.2):
     -------
     float :
         Scalar to convert from per pixel to per physical
-        angular size with the given unit.
+        angular size with a given unit.
         For instance, one can convert flux f in :math:`erg/s/cm^2/A/pix^2` to
         in :math:`erg/s/cm^2/A/kpc^2`
         by ``f * per_pixel_to_physical(distance, scale='kpc')**2``.
     """
 
-    if isinstance(distance, u.quantity.Quantity) is False:
-        distance *= u.Mpc
-        print("Warning: Distance is forced to be in astropy.units.Mpc")
+    # if isinstance(distance, u.quantity.Quantity) is False:
+    #     distance *= u.Mpc
+    #     print("Warning: Distance is forced to be in astropy.units.Mpc")
 
-    pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
+    # pixscale2physical = (pixscale * u.arcsec).to('radian') / u.radian
 
-    if scale == 'pc':
-        pixscale2physical *= distance.to('pc')
-    elif scale == 'kpc':
-        pixscale2physical *= distance.to('kpc')
+    # if scale == 'pc':
+    #     pixscale2physical *= distance.to('pc')
+    # elif scale == 'kpc':
+    #     pixscale2physical *= distance.to('kpc')
 
-    return(1. / pixscale2physical.value)
+    # return(1. / pixscale2physical.value)
+
+    return(1. / pixel_to_physical(distance, scale=scale, pixscale=pixscale))
 
 
 def get_ned_velocity(name=None):
@@ -440,6 +580,70 @@ def muse_fwhm(w, deg=2):
         raise(ValueError("deg must be 2 or 3"))
 
     return(polynomial.polyval(ww, coeff))
+
+
+def map_pixel_major_axis(x, y, xc, yc, theta=0., ellip=0.):
+    """Convert (x, y) to elliptical radius
+    (equivalent to the semi-major axis length).
+
+    Parameters
+    ----------
+    x, y : array_like
+        Pixel coodinates to be converted.
+    xc, yc : int or float
+        Pixel coordinates of the central pixel.
+    theta : float
+        Position angle in degrees measured counter-clockwise
+        from the north (or Y) axis.
+    ellip : float
+        Ellipticity defined as :math:`1-b/a` where
+        :math:`a` and :math:`b` are major and minor axis length, respectively.
+    """
+
+    if isinstance(x, float) or isinstance(x, int):
+        x = np.array([x], dtype=np.float)
+    if isinstance(y, float) or isinstance(y, int):
+        y = np.array([y], dtype=np.float)
+
+    pa_offset = 90.
+    theta = theta + pa_offset
+    radiant = (theta * u.deg).to('radian')
+    axis_ratio = (1. - ellip)
+
+    rad_major_squared = (((x - xc) * np.cos(radiant) +
+                          (y - yc) * np.sin(radiant))**2 +
+                         (-(x - xc) * np.sin(radiant) +
+                          (y - yc) * np.cos(radiant))**2 / axis_ratio**2)
+
+    rad_major = np.sqrt(rad_major_squared)
+
+    return(rad_major)
+
+
+def get_bpt_line(x, pop='sfg', xylines='n2o3'):
+    """Get a line for BPT diagram from
+    Kewley et al. (2006, MNRAS, 372, 961).
+    """
+    if pop.lower() == 'sfg':
+        if xylines.lower() == 'n2o3':
+            y = 0.61 / (x - 0.05) + 1.3
+            y[x >= 0.05] = np.nan
+        elif xylines.lower() == 's2o3':
+            y = 0.72 / (x - 0.32) + 1.3
+            y[x >= 0.32] = np.nan
+        elif xylines.lower() == 'o1o3':
+            y = 0.73 / (x + 0.59) + 1.33
+            y[x >= -0.59] = np.nan
+
+    elif pop.lower() in {'composite', 'comp'}:
+        if xylines.lower() == 'n2o3':
+            y = 0.61 / (x - 0.47) + 1.19
+            y[x >= 0.47] = np.nan
+        else:
+            raise(KeyError("Composite galaxy line is supported " +
+                           "only in [NII]/Halpha BPT diagram."))
+
+    return(y)
 
 
 if __name__ == '__main__':

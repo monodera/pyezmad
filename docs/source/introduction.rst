@@ -22,6 +22,7 @@ Install
 * `Astropy <http://astropy.org>`_
 * `Astroquery <http://astroquery.readthedocs.org/en/latest/>`_
 * `lmfit <http://cars9.uchicago.edu/software/python/lmfit/>`_
+* `seaborn <http://stanford.edu/~mwaskom/software/seaborn/>`_
 * `mpdaf CoreLib <http://urania1.univ-lyon1.fr/mpdaf/chrome/site/DocCoreLib/index.html>`_
 
 All of them can be installed with ``pip``, e.g., ``pip install numpy``.
