@@ -73,15 +73,16 @@ You can check if ``pyezmad`` is installed at a proper location.
 
     MADDIR="/net/astrogate/export/astro/shared/MAD"
 
+
+    if [ -d "${MADDIR}/montage/bin" ]; then
+        PATH=${MADDIR}/montage/bin:$PATH
+    fi
+
     case `hostname` in
         finvarra|theia|eos|selene)
             . ${MADDIR}/mad_pyvenv/bin/activate
             ;;
     esac
-
-    if [ -d "${MADDIR}/montage/bin" ]; then
-        PATH=${MADDIR}/montage/bin:$PATH
-    fi
 
 
 To go back to the original python environment, just type ``deactivate`` in the terminal.
