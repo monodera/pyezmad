@@ -1,8 +1,0 @@
-numpy
-scipy
-matplotlib
-astropy
-lmfit
-
-# to build the documentation
-mkdocs
