@@ -92,7 +92,7 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 def run_voronoi_binning(infile, outprefix,
                         wave_center=5750, dwave=25.,
-                        target_sn=50., quiet=False):
+                        target_sn=50., maskfile=None, quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -111,6 +111,8 @@ def run_voronoi_binning(infile, outprefix,
         Target S/N per pixel for Voronoi binning. The default is 50.
     quiet : bool, optional
         Toggle ``quiet`` option in :py:func:`voronoi.voronoi_2d_binning.
+    maskfile : str, optional
+       Mask file. 1: mask, 0: valid
 
     Returns
     -------
@@ -136,6 +138,12 @@ def run_voronoi_binning(infile, outprefix,
 
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
+
+    # xxmask, yymask = np.meshgrid(np.arange(x.size), np.arange(y.size))
+    if maskfile is not None:
+        idx_valid = np.logical_and(np.ravel(fits.getdata(maskfile)) == 0,
+                                   idx_valid)
+
     # idx_valid = np.logical_and(idx_valid, noise>0.)
 
     #
