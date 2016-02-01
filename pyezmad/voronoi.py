@@ -3,7 +3,7 @@
 import os.path
 import time
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 
@@ -612,3 +612,53 @@ def ql_binspec(ibin, infile, ext_data=1, ext_var=2):
     plt.xlim(w[0], w[-1])
 
     plt.show()
+
+
+def merge_binnings(files_xy2bin, files_bininfo, outprefix):
+    """Merge multiple binnings.
+
+    Parameters
+    ----------
+    files_xy2bin : list
+    files_bininfo : list
+    outprefix : str
+        Prefix for the output file
+    """
+
+    if len(files_xy2bin) != len(files_bininfo):
+        raise(TypeError("sizes of input lists must be identical."))
+
+    print("[INFO] Merging multiple Voronoi binnings:\n")
+
+    xy2bin_all = Table.read(files_xy2bin[0])
+    bininfo_all = Table.read(files_bininfo[0])
+    bininfo_all['binning'] = np.zeros(bininfo_all['bin'].size, dtype=np.int)
+
+    binoffset = bininfo_all['bin'].max()
+
+    for i in range(1, len(files_xy2bin)):
+        tmp_xy2bin = Table.read(files_xy2bin[i])
+        tmp_xy2bin['bin'] += (binoffset + 1)
+
+        tmp_bininfo = Table.read(files_bininfo[i])
+        tmp_bininfo['bin'] += (binoffset + 1)
+
+        tmp_bininfo['binning'] = np.zeros(tmp_bininfo['bin'].size, dtype=np.int) + i
+
+        xy2bin_all = vstack([xy2bin_all, tmp_xy2bin])
+        bininfo_all = vstack([bininfo_all, tmp_bininfo])
+
+        binoffset = bininfo_all['bin'].max()
+
+    xy2bin_all.write('%s_xy2bin.fits' % (outprefix), overwrite=True)
+    xy2bin_all.write('%s_xy2bin.dat' % (outprefix), format='ascii.fixed_width')
+    bininfo_all.write('%s_bininfo.fits' % (outprefix), overwrite=True)
+    bininfo_all.write('%s_bininfo.dat' % (outprefix), format='ascii.fixed_width')
+
+    for f in files_xy2bin:
+        print("%s" % f)
+    print("--> %s_xy2bin.fits\n" % (outprefix))
+
+    for f in files_bininfo:
+        print("%s" % f)
+    print("--> %s_bininfo.fits" % (outprefix))
