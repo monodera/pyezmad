@@ -70,7 +70,7 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     subcube = cube.get_lambda(lbda_min=wave_center - dwave,
                               lbda_max=wave_center + dwave)
 
-    # compute **average** signal and noise within the specified wavelength range
+    # compute *average* signal and noise within the specified wavelength range
     signal = np.trapz(subcube.data, x=subcube.wave.coord(), axis=0)
     signal /= (subcube.wave.get_end() - subcube.wave.get_start())
 
@@ -92,7 +92,11 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 def run_voronoi_binning(infile, outprefix,
                         wave_center=5750, dwave=25.,
-                        target_sn=50., maskfile=None, quiet=False):
+                        target_sn=50.,
+                        maskfile=None,
+                        invert_mask=None,
+                        min_sn=None,
+                        quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -111,8 +115,15 @@ def run_voronoi_binning(infile, outprefix,
         Target S/N per pixel for Voronoi binning. The default is 50.
     quiet : bool, optional
         Toggle ``quiet`` option in :py:func:`voronoi.voronoi_2d_binning.
-    maskfile : str, optional
-       Mask file. 1: mask, 0: valid
+    maskfile : str or list, optional
+        File defining the object mask. It has to be a single FITS file or
+        a list of FITS files. In the mask image,
+        pixels with 0 will be regarded as valid.
+        (1: mask, 0: valid)
+    invert_mask: bool or list
+        Flag to determine whether the mask should be inverted or not.
+    min_sn : float, optional
+        Minimum S/N per pixel to be binned.
 
     Returns
     -------
@@ -139,12 +150,31 @@ def run_voronoi_binning(infile, outprefix,
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
 
-    # xxmask, yymask = np.meshgrid(np.arange(x.size), np.arange(y.size))
+    # mask
+    # it's a bit complicated as we defined to use 1 for masked pixels...
     if maskfile is not None:
-        idx_valid = np.logical_and(np.ravel(fits.getdata(maskfile)) == 0,
-                                   idx_valid)
+        if isinstance(maskfile, str):
+            mask = np.array(fits.getdata(maskfile), dtype=np.bool)
+            if invert_mask is True:
+                mask = np.logical_not(mask)
+            idx_valid = np.logical_and(idx_valid,
+                                       np.ravel(np.logical_not(mask)))
+        elif isinstance(maskfile, list):
+            if invert_mask is None:
+                invert_mask = np.zeros(len(maskfile), dtype=np.bool)
+            elif not isinstance(invert_mask, list):
+                raise(TypeError(
+                    "invert_mask must be a list when mask is a list."))
+            for imask, mask in enumerate(maskfile):
+                mask = np.array(fits.getdata(mask), dtype=np.bool)
+                if invert_mask[imask] is True:
+                    mask = np.logical_not(mask)
+                idx_valid = np.logical_and(idx_valid,
+                                           np.ravel(np.logical_not(mask)))
 
-    # idx_valid = np.logical_and(idx_valid, noise>0.)
+    # set min S/N
+    if min_sn is not None:
+        idx_valid = np.logical_and(np.ravel(snmap) >= min_sn, idx_valid)
 
     #
     # Voronoi binning
