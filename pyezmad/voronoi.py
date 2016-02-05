@@ -3,7 +3,7 @@
 import os.path
 import time
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 
@@ -70,7 +70,7 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
     subcube = cube.get_lambda(lbda_min=wave_center - dwave,
                               lbda_max=wave_center + dwave)
 
-    # compute **average** signal and noise within the specified wavelength range
+    # compute *average* signal and noise within the specified wavelength range
     signal = np.trapz(subcube.data, x=subcube.wave.coord(), axis=0)
     signal /= (subcube.wave.get_end() - subcube.wave.get_start())
 
@@ -92,7 +92,11 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
 def run_voronoi_binning(infile, outprefix,
                         wave_center=5750, dwave=25.,
-                        target_sn=50., quiet=False):
+                        target_sn=50.,
+                        maskfile=None,
+                        invert_mask=None,
+                        min_sn=None,
+                        quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
     Parameters
@@ -111,6 +115,15 @@ def run_voronoi_binning(infile, outprefix,
         Target S/N per pixel for Voronoi binning. The default is 50.
     quiet : bool, optional
         Toggle ``quiet`` option in :py:func:`voronoi.voronoi_2d_binning.
+    maskfile : str or list, optional
+        File defining the object mask. It has to be a single FITS file or
+        a list of FITS files. In the mask image,
+        pixels with 0 will be regarded as valid.
+        (1: mask, 0: valid)
+    invert_mask: bool or list
+        Flag to determine whether the mask should be inverted or not.
+    min_sn : float, optional
+        Minimum S/N per pixel to be binned.
 
     Returns
     -------
@@ -136,7 +149,32 @@ def run_voronoi_binning(infile, outprefix,
 
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
-    # idx_valid = np.logical_and(idx_valid, noise>0.)
+
+    # mask
+    # it's a bit complicated as we defined to use 1 for masked pixels...
+    if maskfile is not None:
+        if isinstance(maskfile, str):
+            mask = np.array(fits.getdata(maskfile), dtype=np.bool)
+            if invert_mask is True:
+                mask = np.logical_not(mask)
+            idx_valid = np.logical_and(idx_valid,
+                                       np.ravel(np.logical_not(mask)))
+        elif isinstance(maskfile, list):
+            if invert_mask is None:
+                invert_mask = np.zeros(len(maskfile), dtype=np.bool)
+            elif not isinstance(invert_mask, list):
+                raise(TypeError(
+                    "invert_mask must be a list when mask is a list."))
+            for imask, mask in enumerate(maskfile):
+                mask = np.array(fits.getdata(mask), dtype=np.bool)
+                if invert_mask[imask] is True:
+                    mask = np.logical_not(mask)
+                idx_valid = np.logical_and(idx_valid,
+                                           np.ravel(np.logical_not(mask)))
+
+    # set min S/N
+    if min_sn is not None:
+        idx_valid = np.logical_and(np.ravel(snmap) >= min_sn, idx_valid)
 
     #
     # Voronoi binning
@@ -574,3 +612,53 @@ def ql_binspec(ibin, infile, ext_data=1, ext_var=2):
     plt.xlim(w[0], w[-1])
 
     plt.show()
+
+
+def merge_binnings(files_xy2bin, files_bininfo, outprefix):
+    """Merge multiple binnings.
+
+    Parameters
+    ----------
+    files_xy2bin : list
+    files_bininfo : list
+    outprefix : str
+        Prefix for the output file
+    """
+
+    if len(files_xy2bin) != len(files_bininfo):
+        raise(TypeError("sizes of input lists must be identical."))
+
+    print("[INFO] Merging multiple Voronoi binnings:\n")
+
+    xy2bin_all = Table.read(files_xy2bin[0])
+    bininfo_all = Table.read(files_bininfo[0])
+    bininfo_all['binning'] = np.zeros(bininfo_all['bin'].size, dtype=np.int)
+
+    binoffset = bininfo_all['bin'].max()
+
+    for i in range(1, len(files_xy2bin)):
+        tmp_xy2bin = Table.read(files_xy2bin[i])
+        tmp_xy2bin['bin'] += (binoffset + 1)
+
+        tmp_bininfo = Table.read(files_bininfo[i])
+        tmp_bininfo['bin'] += (binoffset + 1)
+
+        tmp_bininfo['binning'] = np.zeros(tmp_bininfo['bin'].size, dtype=np.int) + i
+
+        xy2bin_all = vstack([xy2bin_all, tmp_xy2bin])
+        bininfo_all = vstack([bininfo_all, tmp_bininfo])
+
+        binoffset = bininfo_all['bin'].max()
+
+    xy2bin_all.write('%s_xy2bin.fits' % (outprefix), overwrite=True)
+    xy2bin_all.write('%s_xy2bin.dat' % (outprefix), format='ascii.fixed_width')
+    bininfo_all.write('%s_bininfo.fits' % (outprefix), overwrite=True)
+    bininfo_all.write('%s_bininfo.dat' % (outprefix), format='ascii.fixed_width')
+
+    for f in files_xy2bin:
+        print("%s" % f)
+    print("--> %s_xy2bin.fits\n" % (outprefix))
+
+    for f in files_bininfo:
+        print("%s" % f)
+    print("--> %s_bininfo.fits" % (outprefix))
