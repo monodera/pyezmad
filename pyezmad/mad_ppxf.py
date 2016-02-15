@@ -18,6 +18,8 @@ from multiprocessing import Process
 
 import matplotlib.pyplot as plt
 
+from tqdm import trange
+
 from ppxf import ppxf
 import ppxf_util as util
 
@@ -431,10 +433,10 @@ def setup_spectral_library(file_template_list, velscale,
 
     # norm_templ = np.empty(template_list.size)
 
-    for i in range(template_list.size):
-        if i % 100 == 0:
-            print("....%4i/%4i templates are processed." %
-                  (i, template_list.size))
+    for i in trange(template_list.size):
+        # if i % 100 == 0:
+        #     print("....%4i/%4i templates are processed." %
+        #           (i, template_list.size))
         hdu = fits.open(template_list[i])
         ssp = hdu[0].data
         # perform a convolution with wavelength-dependent sigma
@@ -574,6 +576,9 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     def run_ppxf_multiprocess(bins_begin, bins_end):
 
         for ibin in np.arange(bins_begin, bins_end):
+        # for ibin in trange(bins_begin, bins_end,
+        #                    desc='bins %i;%i' % (bins_begin, bins_end),
+        #                    leave=True):
             if (ibin - bins_begin + 1) % 10 == 0:
                 print("....%6.3f %% finished [%i:%i] " %
                       ((ibin - bins_begin) * 1. /

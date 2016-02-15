@@ -50,12 +50,17 @@ class EmissionLine:
         else:
             return(f)
 
-    def make_kinematics_img(self, vc=None, refline='Halpha'):
+    def make_kinematics_img(self, vc=None, refline='Halpha', component=None):
+        v, ev, s, es = 'vel', 'errvel', 'sig', 'errsig'
+        if component is not None:
+            refline = refline + '_%i' % component
+            v, ev = 'vel_%i' % component, 'errvel_%i' % component
+            s, es = 'sig_%i' % component, 'errsig_%i' % component
         extname, keyname = search_lines(self.__hdu, [refline])
-        self.__vel = self.__hdu[extname[refline]].data['vel']
-        self.__sig = self.__hdu[extname[refline]].data['sig']
-        self.__e_vel = self.__hdu[extname[refline]].data['errvel']
-        self.__e_sig = self.__hdu[extname[refline]].data['errsig']
+        self.__vel = self.__hdu[extname[refline]].data[v]
+        self.__sig = self.__hdu[extname[refline]].data[s]
+        self.__e_vel = self.__hdu[extname[refline]].data[ev]
+        self.__e_sig = self.__hdu[extname[refline]].data[es]
 
         if vc is None:
             vc = np.nanmedian(self.__vel)
@@ -114,12 +119,16 @@ class EmissionLine:
     def e_sig_img(self):
         return(self.__e_sig_img)
 
-    def calc_ebv(self, line1=None, line2=None, extcurve='CCM', clip=True):
+    def calc_ebv(self, line1=None, line2=None, extcurve='CCM', component=None, clip=True):
 
         if line1 is None:
             line1 = 'Halpha'
         if line2 is None:
             line2 = 'Hbeta'
+
+        if component is not None:
+            line1 = line1 + '_%i' % component
+            line2 = line2 + '_%i' % component
 
         extname, keyname = search_lines(self.__hdu, [line1, line2])
         f1 = self.__hdu[extname[line1]].data['f_' + line1]

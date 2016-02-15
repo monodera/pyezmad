@@ -6,6 +6,7 @@ import numpy as np
 from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
+from tqdm import trange
 
 from voronoi_2d_binning import voronoi_2d_binning
 from mpdaf.obj import Cube
@@ -338,34 +339,53 @@ def stacking(fcube, ftable, fout):
     """
 
     tb_xy2bin = Table.read(ftable)
-    cube = Cube(fcube)
+    # cube = Cube(fcube)
+    hdu_cube = fits.open(fcube)
+
+    data = hdu_cube['DATA'].data
+
+    try:
+        var = hdu_cube['STAT'].data
+    except:
+        var = hdu_cube['VAR'].data
 
     bin_start = tb_xy2bin['bin'].min()
     bin_end = tb_xy2bin['bin'].max()
 
     nbin = bin_end - bin_start + 1
 
-    nwave = cube.wave.coord().size
+    # nwave = cube.wave.coord().size
+    nwave = hdu_cube['DATA'].header['NAXIS3']
     stack_spec = np.empty((nbin, nwave), dtype=np.float) + np.nan
     stack_var  = np.empty((nbin, nwave), dtype=np.float) + np.nan
+    stack_mask = np.empty((nbin, nwave), dtype=np.int)
+
+    print("[INFO] Start spectral stacking")
+    print("MUSE cube         : %s" % fcube)
+    print("Binning infomation: %s" % ftable)
 
     # for i in xrange(20):
-    for i in xrange(nbin):
+    # for i in xrange(nbin):
+    for i in trange(nbin):
 
         idx = tb_xy2bin['bin'] == i
         xbin = tb_xy2bin['x'][idx]
         ybin = tb_xy2bin['y'][idx]
 
-        stack_data_bin = np.array([cube.data[:, iy, ix]
+        stack_data_bin = np.array([data[:, iy, ix]
                                    for iy, ix in zip(ybin, xbin)])
         stack_data_bin = np.nansum(stack_data_bin, axis=0)
 
-        stack_var_bin = np.array([cube.var[:, iy, ix]
+        stack_mask_bin = np.array([data[:, iy, ix] * 0 + 1
+                                   for iy, ix in zip(ybin, xbin)])
+        stack_npix_bin = np.nansum(stack_mask_bin, axis=0)
+
+        stack_var_bin = np.array([var[:, iy, ix]
                                   for iy, ix in zip(ybin, xbin)])
         stack_var_bin = np.nansum(stack_var_bin, axis=0)
 
-        stack_data_bin /= tb_xy2bin['bin'][idx].size
-        stack_var_bin /= tb_xy2bin['bin'][idx].size**2
+        stack_data_bin /= stack_npix_bin
+        stack_var_bin /= stack_npix_bin**2
 
         stack_spec[i, :] = stack_data_bin
         stack_var[i, :] = stack_var_bin
@@ -375,19 +395,19 @@ def stacking(fcube, ftable, fout):
     var_hdu = fits.ImageHDU(data=stack_var, name='VAR')
 
     for hdu in [data_hdu, var_hdu]:
-        hdu.header['CRPIX1'] = cube.data_header['CRPIX3']
-        hdu.header['CRVAL1'] = cube.data_header['CRVAL3']
-        if 'CDELT3' in cube.data_header:
-            hdu.header['CDELT1'] = cube.data_header['CDELT3']
-        elif 'CD3_3' in cube.data_header:
-            hdu.header['CDELT1'] = cube.data_header['CD3_3']
-        hdu.header['CTYPE1'] = cube.data_header['CTYPE3']
-        hdu.header['CUNIT1'] = cube.data_header['CUNIT3']
+        hdu.header['CRPIX1'] = hdu_cube['DATA'].header['CRPIX3']
+        hdu.header['CRVAL1'] = hdu_cube['DATA'].header['CRVAL3']
+        if 'CDELT3' in hdu_cube['DATA'].header:
+            hdu.header['CDELT1'] = hdu_cube['DATA'].header['CDELT3']
+        elif 'CD3_3' in hdu_cube['DATA'].header:
+            hdu.header['CDELT1'] = hdu_cube['DATA'].header['CD3_3']
+        hdu.header['CTYPE1'] = hdu_cube['DATA'].header['CTYPE3']
+        hdu.header['CUNIT1'] = hdu_cube['DATA'].header['CUNIT3']
 
-        if 'BUNIT' in cube.data_header:
-            hdu.header['BUNIT'] = cube.data_header['BUNIT']
-        if 'FSCALE' in cube.data_header:
-            hdu.header['FSCALE'] = cube.data_header['FSCALE']
+        if 'BUNIT' in hdu_cube['DATA'].header:
+            hdu.header['BUNIT'] = hdu_cube['DATA'].header['BUNIT']
+        if 'FSCALE' in hdu_cube['DATA'].header:
+            hdu.header['FSCALE'] = hdu_cube['DATA'].header['FSCALE']
 
     hdulist = fits.HDUList([prihdu, data_hdu, var_hdu])
     hdulist.writeto(fout, clobber=True)
@@ -653,7 +673,8 @@ def merge_binnings(files_xy2bin, files_bininfo, outprefix):
     xy2bin_all.write('%s_xy2bin.fits' % (outprefix), overwrite=True)
     xy2bin_all.write('%s_xy2bin.dat' % (outprefix), format='ascii.fixed_width')
     bininfo_all.write('%s_bininfo.fits' % (outprefix), overwrite=True)
-    bininfo_all.write('%s_bininfo.dat' % (outprefix), format='ascii.fixed_width')
+    bininfo_all.write('%s_bininfo.dat' % (outprefix),
+                          format='ascii.fixed_width')
 
     for f in files_xy2bin:
         print("%s" % f)
