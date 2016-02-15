@@ -25,6 +25,7 @@ Install
 * `seaborn <http://stanford.edu/~mwaskom/software/seaborn/>`_
 * `PyNeb <http://www.iac.es/proyecto/PyNeb/>`_
 * `mpdaf CoreLib <http://urania1.univ-lyon1.fr/mpdaf/chrome/site/DocCoreLib/index.html>`_
+* `tqdm <https://github.com/noamraph/tqdm>`_
 
 All of them can be installed with ``pip``, e.g., ``pip install numpy``.
 If you don't have a root permission on the computer you are working,

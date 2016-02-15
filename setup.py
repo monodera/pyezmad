@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='pyezmad',
-      version='0.1.20',
+      version='0.1.40',
       description='Python MAD Analysis Tools',
       url='https://bitbucket.org/monodera/pyezmad',
       author='Masato Onodera',
@@ -12,6 +12,8 @@ setup(name='pyezmad',
       packages=['pyezmad'],
       package_data={'pyezmad': ['database/emission_lines.dat']},
       zip_safe=False,
-
-      # install_requires=['numpy', 'scipy', 'matplotlib', 'astropy', 'lmfit']
+      install_requires=['numpy', 'scipy', 'astropy',
+                        'astroquery', 'lmfit', 'mpdaf', 'tqdm'],
+      extra_requires={'plot': ['matplotlib', 'seaborn'],
+                      'electron density': ['pyneb']},
       )
