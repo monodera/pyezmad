@@ -59,7 +59,6 @@ def search_lines(hdu, line_list, verbose=True):
         [ 344.87768249  252.25565277  268.18625201 ...,   29.67768105
            17.77837443  134.66131437]
 
-
     The format is a bit messy, so any suggestions are welcome!
     """
 
@@ -67,13 +66,33 @@ def search_lines(hdu, line_list, verbose=True):
     keyname = {}
 
     for k in line_list:
+
         iext = 0
         iline = 0
+        icomp = 0
+
         while True:
+            try:
+                maxcomp = hdu[iext].header['MAXCOMP']
+            except:
+                maxcomp = 1
+            try:
+                nline = hdu[iext].header['NLINE']
+            except:
+                nline = 99  # max number of lines is hard-coded as 99.
+
             if iext == len(hdu):
                 break
-            key_line = 'LINE%i' % iline
-            if key_line in hdu[iext].header:
+            if icomp == maxcomp:
+                break
+            if iline == nline:
+                icomp += 1
+                iline = 0
+
+            key_line = 'LINE%i_%i' % (iline, icomp)
+            key_line_old = 'LINE%i' % (iline)  # for backward compatibility
+
+            if (key_line in hdu[iext].header):
                 if (hdu[iext].header[key_line] == k):
                     extname[k] = hdu[iext].header['EXTNAME']
                     keyname[k] = key_line
@@ -82,10 +101,19 @@ def search_lines(hdu, line_list, verbose=True):
                     break
                 else:
                     iline += 1
-
+            elif (key_line_old in hdu[iext].header):
+                if (hdu[iext].header[key_line_old] == k):
+                    extname[k] = hdu[iext].header['EXTNAME']
+                    keyname[k] = key_line_old
+                    if verbose is True:
+                        print('Key found for %s' % k)
+                    break
+                else:
+                    iline += 1
             else:
                 iext += 1
                 iline = 0
+                icomp = 0
     return(extname, keyname)
 
 
@@ -140,8 +168,11 @@ def gaussian(x, flux, vel, sig, lam):
     return(g)
 
 
-def fit_single_spec(wave, flux, var, vel_star, linelist_name,
-                    dwfit=100., cont_model='linear', is_checkeach=False,
+def fit_single_spec(wave, flux, var, vel_star,
+                    linelist_name,
+                    components=None,
+                    dwfit=100., maxdv=None,
+                    cont_model='linear', is_checkeach=False,
                     instrument=None, linelist=None, verbose=True, maxfev=None):
     """Fit Gaussian(s) to a single spectrum.
 
@@ -158,10 +189,15 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
         This will be used as an initial guess.
     linelist_name : list
         A list containing names of emission lines fit simultaneously.
+    components : list, optional
+        A list containing integers telling how many component in each set of
+        `linelist_name` will be used.
     dwfit : float, optional
         Fitting will be done +/-dwfit angstrom
         from the line center in rest-frame.
         The default is 100.
+    maxdv : float, optional
+        Maximum allowed velocity offset from the ininital velocity input in km/s.
     is_checkeach : bool, optional
         If `True`, a plot showing the observed and best-fit spectra
         wiil be shown.  The default is `False`.
@@ -191,28 +227,50 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
 
     out_fitting = np.empty(len(linelist_name), dtype=np.object)
 
+    if maxdv is None:
+        vmin, vmax = None, None
+    else:
+        vmin, vmax = vel_star - maxdv, vel_star + maxdv
+
+    # loop on each group of emission lines
     for j in range(len(linelist_name)):
 
+        nline = len(linelist_name[j])
+
+        ncomp = components[j]
+
+        # initialize the dictionary to contain the results
         out_fitting_group = {'flux': {},
                              'eflux': {},
-                             'vel': np.nan, 'sig': np.nan,
-                             'evel': np.nan, 'esig': np.nan,
                              'cont_slope': np.nan,
                              'cont_intercept': np.nan,
                              'cont_a': np.nan,
                              'cont_b': np.nan,
                              'cont_c': np.nan,
                              'chi2': np.nan}
+        for icomp in range(np.max(ncomp)):
+            out_fitting_group['vel_%i' % icomp] = np.nan
+            out_fitting_group['sig_%i' % icomp] = np.nan
+            out_fitting_group['evel_%i' % icomp] = np.nan
+            out_fitting_group['esig_%i' % icomp] = np.nan
 
         idx_fit = np.zeros(wave.size, dtype=np.bool)
 
-        for k in range(len(linelist_name[j])):
+        for k in range(nline):
             idx_fit_k = np.logical_and(
                 wave >= linelist[linelist_name[j][k]] - dwfit,
                 wave <= linelist[linelist_name[j][k]] + dwfit)
             idx_fit = np.logical_or(idx_fit, idx_fit_k)
 
         idx_fit = np.logical_and(idx_fit, np.isfinite(var))
+
+        idx_cont1 = np.logical_and(wave >= wave[idx_fit].min() - dwfit,
+                                   wave < wave[idx_fit].min())
+        idx_cont2 = np.logical_and(wave > wave[idx_fit].max(),
+                                   wave <= wave[idx_fit].max() + dwfit)
+        idx_cont = np.logical_or(idx_cont1, idx_cont2)
+        idx_cont = np.logical_and(idx_cont, np.isfinite(var))
+        idx_cont = np.logical_and(idx_cont, np.isfinite(1./var))
 
         x = wave[idx_fit]
         y = flux[idx_fit]
@@ -232,60 +290,75 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
             models['cont'] = lmfit.models.QuadraticModel(name='cont',
                                                          prefix='cont_',
                                                          missing='drop')
-
         else:
             raise(
                 ValueError(
                     "cont_model must be 'const', 'linear' or 'quadratic'."))
 
-        pars = models['cont'].guess(y * 0., x=x)
+        # pars = models['cont'].guess(y * 0., x=x)
+        pars = models['cont'].guess(flux[idx_cont], x=wave[idx_cont])
 
         model = models['cont']
 
-        for k in range(len(linelist_name[j])):
-            lname = linelist_name[j][k]
-            models[lname] = lmfit.models.Model(gaussian,
-                                               prefix=lname + '_',
-                                               missing='drop',
-                                               name=lname)
-            pars.update(models[lname].make_params())
-            pars[lname + '_flux'].set(250., min=0.)
-            pars[lname + '_lam'].set(linelist[lname], vary=False)
+        init_flux = np.trapz(y - np.nanmedian(flux[idx_cont]), x=x) / nline
 
-            if k > 0:
-                # relate velocity and sigma to the 1st line in the group
-                # Now sigma = 40km/s and v=v_star is assumed,
-                # but may be make them input
-                pars[lname + '_vel'].set(vel_star,
-                                         expr='%s_vel' % linelist_name[j][0])
-                pars[lname + '_sig'].set(40.,
-                                         min=0.,
-                                         expr='%s_sig' % linelist_name[j][0])
-            else:
-                pars[lname + '_vel'].set(vel_star)
-                pars[lname + '_sig'].set(40., min=0.)
+        lname_common = []
 
-            model += models[lname]
+        for icomp in range(np.max(ncomp)):
+
+            iline = 0
+
+            for k in range(nline):
+
+                if icomp < ncomp[k]:
+                    lname = linelist_name[j][k] + '_%i' % icomp
+                    init_lam = linelist[linelist_name[j][k]]
+                    models[lname] = lmfit.models.Model(gaussian,
+                                                       prefix=lname + '_',
+                                                       missing='drop',
+                                                       name=lname)
+                    pars.update(models[lname].make_params())
+                    # MO: here, I force the flux of secondary or higher component
+                    #     to be 10x weaker than the primary component.
+                    #     Maybe, it's not a good assumption in some cases...
+                    if icomp > 0:
+                        init_flux /= 5.
+                    pars[lname + '_flux'].set(init_flux, min=0.)
+                    pars[lname + '_lam'].set(init_lam, vary=False)
+
+                    if iline > 0:
+                        # relate velocity and sigma to the 1st line in the group
+                        # Now sigma = 40km/s and v=v_star is assumed,
+                        # but may be make them input
+                        pars[lname + '_vel'].set(vel_star,
+                                                 expr='%s_vel' % (lname_common[icomp]))
+                        pars[lname + '_sig'].set(40.,
+                                                 min=0.,
+                                                 expr='%s_sig' % (lname_common[icomp]))
+                        iline += 1
+                    else:
+                        pars[lname + '_vel'].set(vel_star, min=vmin, max=vmax)
+                        pars[lname + '_sig'].set(40., min=0.)
+                        lname_common.append(lname)
+                        iline += 1
+
+                    model += models[lname]
 
         res_fit = model.fit(y, pars, x=x, weights=w,
                             fit_kws=dict(maxfev=maxfev),
                             verbose=verbose)
 
-        # print(res_fit.fit_report(min_correl=0.5))
         print(res_fit.fit_report(show_correl=False))
         print("res_fit.nfev = ", res_fit.nfev, end='\n')
         print("res_fit.success = ", res_fit.success, end='\n')
         print("res_fit.ier = %i" % res_fit.ier, end='\n')
         print("res_fit.lmdif_message: %s" % res_fit.lmdif_message, end='\n')
 
-        # NOTE: slightly confusing...
-        # lname can be carried over to this point
-        # as only one vel and sig values in each
-        # group of emission lines.
-        out_fitting_group['vel'] = res_fit.best_values[lname + '_vel']
-        out_fitting_group['sig'] = res_fit.best_values[lname + '_sig']
-        out_fitting_group['errvel'] = res_fit.params[lname + '_vel'].stderr
-        out_fitting_group['errsig'] = res_fit.params[lname + '_sig'].stderr
+        for icomp in range(np.max(ncomp)):
+            out_fitting_group['vel_%i' % icomp ] = res_fit.best_values[lname_common[icomp] + '_vel']
+            out_fitting_group['sig_%i' % icomp] = res_fit.best_values[lname_common[icomp] + '_sig']
+            out_fitting_group['errvel_%i' % icomp] = res_fit.params[lname_common[icomp] + '_vel'].stderr
+            out_fitting_group['errsig_%i' % icomp] = res_fit.params[lname_common[icomp] + '_sig'].stderr
 
         if cont_model == 'const':
             out_fitting_group['cont_c'] = res_fit.best_values['cont_c']
@@ -307,18 +380,27 @@ def fit_single_spec(wave, flux, var, vel_star, linelist_name,
         out_fitting_group['ier'] = res_fit.ier
         out_fitting_group['lmdif_message'] = res_fit.lmdif_message
 
-        for k in range(len(linelist_name[j])):
-            lname = linelist_name[j][k]
-            out_fitting_group['flux'][lname] \
-                = res_fit.best_values[lname + '_flux']
-            out_fitting_group['eflux'][lname] \
-                = res_fit.params[lname + '_flux'].stderr
+        for icomp in range(np.max(ncomp)):
+            for k in range(len(linelist_name[j])):
+                lname = linelist_name[j][k] + '_%i' % icomp
+                try:
+                    out_fitting_group['flux'][lname] \
+                      = res_fit.best_values[lname + '_flux']
+                    out_fitting_group['eflux'][lname] \
+                      = res_fit.params[lname + '_flux'].stderr
+                except:
+                    out_fitting_group['flux'][lname] = np.nan
+                    out_fitting_group['eflux'][lname] = np.nan
 
         out_fitting[j] = out_fitting_group
 
         # plt.ion()
         if is_checkeach is True:
+            comps = res_fit.eval_components(x=x)
+            for key, comp in comps.items():
+                plt.plot(x, comp, '--', c='0.2', lw=1, label=key)
             plt.plot(x, y, 'k-')
+            plt.fill_between(x, 1. / w, color='0.5', alpha=0.5)
             plt.plot(x, res_fit.best_fit, 'r-', lw=2, alpha=0.7)
             plt.show()
 
@@ -329,8 +411,12 @@ def emission_line_fitting(voronoi_binspec_file,
                           ppxf_output_file,
                           outfile,
                           linelist_name,
+                          components=None,
+                          dwfit=100.,
+                          maxdv=None,
+                          velocity=None,
                           cont_model='linear',
-                          maxfev=1000.,
+                          maxfev=1000,
                           is_checkeach=False,
                           instrument='MUSE',
                           master_linelist=None,
@@ -351,11 +437,24 @@ def emission_line_fitting(voronoi_binspec_file,
         Stellar line-of-sight velocity should be stored with the key 'vel'.
     outfile : str
         Output file name (FITS file)
+    velocity : int, float, or numpy.ndarray, optional
+        Velocity to be applied if `ppxf_output_file=None`.
+        This will be ignored when `ppxf_output_file` is provided.
     linelist_name : list
         List of emission lines to be fit.
         When grouped with square brackets,
         they will be fit simultaneously by assuming
         identical line-of-sight velocity and velocity dispersion.
+    components : list, optional
+        A list containing integers telling how many component in each set of
+        `linelist_name` will be used.
+    dwfit : float, optional
+        Wavelength +/- dwfit angstrom will be considered for the fitting.
+        The Default value is 100.
+    maxdv : float, optional
+        Maximum allowed velocity offset from the ininital velocity input in km/s.
+    is_checkeach : bool, optional
+        Plot after each fitting.  The default is False.
     cont_model : str, optional
         Continuum model.
         Either ``const``, ``linear`` or ``quadratic`` is supported.
@@ -385,11 +484,36 @@ def emission_line_fitting(voronoi_binspec_file,
     if master_linelist is None:
         master_linelist = read_emission_linelist()
 
+    if not isinstance(linelist_name, list):
+        raise(TypeError("'linelist_name' must be a list even if there is only one component."))
+
+    if not isinstance(linelist_name[0], list):
+        raise(TypeError("Each element of 'linelist_name' must be a list even if there is only one component."))
+
+    if (components is not None) and (len(linelist_name) != len(components)):
+        raise(TypeError("Length of 'components' must be identical to that of 'linelist_name'."))
+
+    if components is not None:
+        for i in range(len(components)):
+            if len(linelist_name[i]) != len(components[i]):
+                raise(TypeError("Length of %i-th element of 'linelist_name' and 'components' do not match." % i))
+    elif components is None:
+        components = [np.ones_like(llist, dtype=np.int) for llist in linelist_name]
+
+
     # need to import here for some reason...
     from .voronoi import read_stacked_spectra
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
-    tb_ppxf = Table.read(ppxf_output_file)
+
+    if ppxf_output_file is None:
+        if isinstance(velocity, int) or isinstance(velocity, float):
+            vel_init = np.ones(flux.shape[0], dtype=np.float) * velocity
+        elif isinstance(velocity, np.ndarray):
+            vel_init = velocity
+    else:
+        tb_ppxf = Table.read(ppxf_output_file)
+        vel_init = tb_ppxf['vel']
 
     res_fitting = np.empty(flux.shape[0], dtype=np.object)
 
@@ -406,8 +530,12 @@ def emission_line_fitting(voronoi_binspec_file,
         res_fitting[i] = fit_single_spec(wave,
                                          flux[i, :],
                                          var[i, :],
-                                         tb_ppxf['vel'][i],
+                                         # tb_ppxf['vel'][i],
+                                         vel_init[i],
                                          linelist_name,
+                                         components=components,
+                                         dwfit=dwfit,
+                                         maxdv=maxdv,
                                          cont_model=cont_model,
                                          maxfev=maxfev,
                                          is_checkeach=is_checkeach,
@@ -427,28 +555,36 @@ def emission_line_fitting(voronoi_binspec_file,
 
     for j in range(len(linelist_name)):
         cols = []
-        for k in range(len(linelist_name[j])):
-            lname = linelist_name[j][k]
-            col_val = fits.Column(
-                name='f_' + lname, format='D',
-                array=np.array([res_fitting[i][j]['flux'][lname]
-                                for i in xrange(flux.shape[0])]))
-            col_err = fits.Column(
-                name='ef_' + lname, format='D',
-                array=np.array([res_fitting[i][j]['eflux'][lname]
-                                for i in xrange(flux.shape[0])]))
-            cols.append(col_val)
-            cols.append(col_err)
+        for icomp in range(np.max(components[j])):
+            for k in range(len(linelist_name[j])):
+                lname = linelist_name[j][k] + '_%i' % icomp
+                col_val = fits.Column(
+                    name='f_' + lname, format='D',
+                    array=np.array([res_fitting[i][j]['flux'][lname]
+                                        for i in xrange(flux.shape[0])]))
+                col_err = fits.Column(
+                    name='ef_' + lname, format='D',
+                    array=np.array([res_fitting[i][j]['eflux'][lname]
+                                        for i in xrange(flux.shape[0])]))
+                cols.append(col_val)
+                cols.append(col_err)
 
-        for key in ['vel', 'sig', 'errvel', 'errsig',
-                    'cont_a', 'cont_b', 'cont_c',
+            for key in ['vel', 'sig', 'errvel', 'errsig']:
+                keykey = key + '_%i' % icomp
+                cols.append(
+                    fits.Column(
+                        name=keykey, format='D',
+                        array=np.array([res_fitting[i][j][keykey]
+                                            for i in xrange(flux.shape[0])])))
+
+        for key in ['cont_a', 'cont_b', 'cont_c',
                     'cont_intercept', 'cont_slope',
                     'redchi', 'chisqr']:
             cols.append(
                 fits.Column(
                     name=key, format='D',
                     array=np.array([res_fitting[i][j][key]
-                                    for i in xrange(flux.shape[0])])))
+                                        for i in xrange(flux.shape[0])])))
 
         cols.append(
             fits.Column(
@@ -469,9 +605,14 @@ def emission_line_fitting(voronoi_binspec_file,
         tbhdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols),
                                               name='GROUP%i' % j)
 
-        for k in range(len(linelist_name[j])):
-            tbhdu.header['LINE%i' % k] = linelist_name[j][k]
-            tbhdu.header['WAVE%i' % k] = master_linelist[linelist_name[j][k]]
+        for icomp in range(np.max(components[j])):
+            for k in range(len(linelist_name[j])):
+                lname = linelist_name[j][k] + '_%i' % icomp
+                tbhdu.header['LINE%i_%i' % (k, icomp)] = lname
+                tbhdu.header['WAVE%i_%i' % (k, icomp)] = master_linelist[linelist_name[j][k]]
+
+        tbhdu.header['MAXCOMP'] = np.max(components[j])
+        tbhdu.header['NLINE'] = len(components[j])
 
         hdu_arr.append(tbhdu)
 
