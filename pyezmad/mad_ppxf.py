@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 
@@ -433,7 +434,7 @@ def setup_spectral_library(file_template_list, velscale,
 
     # norm_templ = np.empty(template_list.size)
 
-    for i in trange(template_list.size):
+    for i in trange(template_list.size, desc='Making Templates', leave=True):
         # if i % 100 == 0:
         #     print("....%4i/%4i templates are processed." %
         #           (i, template_list.size))
@@ -462,16 +463,16 @@ def setup_spectral_library(file_template_list, velscale,
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
-                                    temp_list=None,
-                                    vel_init=1000., sigma_init=50.,
-                                    dv_mask=200.,
-                                    wmin_fit=4800, wmax_fit=7000.,
-                                    dw_edge=100.,
-                                    n_thread=12,
-                                    ext_data=1, ext_var=2,
-                                    FWHM_inst=None, FWHM_tem=2.51,
-                                    ppxf_kwargs=None, linelist=None,
-                                    is_mask_telluric=True):
+                                        temp_list=None,
+                                        vel_init=1000., sigma_init=50.,
+                                        dv_mask=200.,
+                                        wmin_fit=4800, wmax_fit=7000.,
+                                        dw_edge=100.,
+                                        n_thread=12,
+                                        ext_data=1, ext_var=2,
+                                        FWHM_inst=None, FWHM_tem=2.51,
+                                        ppxf_kwargs=None, linelist=None,
+                                        is_mask_telluric=True):
     """Run pPXF for all Voronoi binned spectra made with
     :py:meth:`pyezmad.voronoi.stack`.
 
@@ -573,17 +574,14 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
             ppxf_keydic[k] = v
 
     # for multiprocessing
-    def run_ppxf_multiprocess(bins_begin, bins_end):
+    def run_ppxf_multiprocess(bins):
 
-        for ibin in np.arange(bins_begin, bins_end):
-        # for ibin in trange(bins_begin, bins_end,
-        #                    desc='bins %i;%i' % (bins_begin, bins_end),
-        #                    leave=True):
-            if (ibin - bins_begin + 1) % 10 == 0:
+        for ibin in bins:
+            if (ibin - bins[0]) % 10 == 0:
                 print("....%6.3f %% finished [%i:%i] " %
-                      ((ibin - bins_begin) * 1. /
-                       ((bins_end - bins_begin) * 1.) * 100.,
-                       bins_begin, bins_end))
+                      ((ibin - bins[0]) * 1. /
+                       ((bins[-1] - bins[0]) * 1.) * 100.,
+                       bins[0], bins[-1]))
 
             galaxy, logLam_galaxy, velscale \
                 = util.log_rebin(lamRange_galaxy, galaxy0[ibin, mask])
@@ -628,38 +626,55 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
     #
     # parallelization
     #
-    nobj_per_proc = nbins / n_thread
-    ispec_start, ispec_end = 0, nbins
-    bins_begin = np.arange(ispec_start, ispec_end, nobj_per_proc)
-    bins_end = bins_begin + nobj_per_proc
-    bins_end[-1] = ispec_end
+    # nobj_per_proc = nbins / n_thread
+    # ispec_start, ispec_end = 0, nbins
+    # bins_begin = np.arange(ispec_start, ispec_end, nobj_per_proc)
+    # bins_end = bins_begin + nobj_per_proc
+    # bins_end[-1] = ispec_end
+
+    bins_parallel = np.array_split(range(nbins), n_thread)
+    # bins_begin = [bins_parallel[ib][0] for ib in range(n_thread)]
+    # bins_end = [bins_parallel[ib][-1] for ib in range(n_thread)]
 
     print("pPXF will run on %i threads in parallel." % n_thread)
     print("Bins are split as follows.")
     print("=============")
     print(" Start    End")
     print("-------------")
-    for b, e in zip(bins_begin, bins_end):
-        print("%6i %6i" % (b, e))
+    for b in bins_parallel:
+        print("%6i %6i" % (b[0], b[-1]))
     print("-------------")
 
     processes = [Process(target=run_ppxf_multiprocess,
-                         args=(bins_begin[i], bins_end[i]))
-                 for i in range(bins_begin.size)]
+                         args=(bins_parallel[i],))
+                 for i in range(len(bins_parallel))]
 
     t_start = time.time()
 
-    for p in processes:
-        p.start()
-        # - have some sleep before submitting next process.
-        # - not sure this helps, but sometimes it make pipe error,
-        #   so I'm trying to do it. Maximum n_thread*1 sec loss, no problem.
-        time.sleep(1)
+    die = (lambda vals:
+           [val.terminate() for val in vals if val.exitcode is None])
+    # die = (lambda vals:
+    #        [val.terminate() for val in vals])
 
-    for p in processes:
-        p.join()
+    try:
+        for p in processes:
+            p.start()
+            # - have some sleep before submitting next process.
+            # - not sure this helps, but sometimes it make pipe error,
+            #   so I'm trying to do it. Maximum n_thread*0.5 sec loss, should be no problem.
+            time.sleep(0.5)
 
-    t_end = time.time()
+        for p in processes:
+            p.join()
+
+        t_end = time.time()
+
+    except Exception as e:
+        die(processes)
+        raise(e)
+    except KeyboardInterrupt as e:
+        die(processes)
+        raise(e)
 
     print("Time Elapsed for pPXF run: %f [seconds]" % (t_end - t_start))
 

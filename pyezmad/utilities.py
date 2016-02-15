@@ -4,6 +4,8 @@ import os.path
 import numpy as np
 import numpy.polynomial.polynomial as polynomial
 
+import pyregion
+
 import astropy.io.fits as fits
 from astropy.visualization import scale_image
 import astropy.units as u
@@ -644,6 +646,34 @@ def get_bpt_line(x, pop='sfg', xylines='n2o3'):
                            "only in [NII]/Halpha BPT diagram."))
 
     return(y)
+
+
+def reg2mask(inreg, outfile, refimg):
+    """Convert a DS9 region file to mask image.
+
+    Parameters
+    ----------
+    inreg : str
+        DS9 region file.
+    outfile : str
+        Output mask file. Output file is in FITS format.
+        In the output image, masked and unmasked pixels
+        are 1 and 0, respectively.
+    refimg : str
+        Reference image from which the geometry and WCS
+        of output mask image are extracted.
+        Just a white-light image is fine.
+    """
+
+    r = pyregion.open(inreg)
+    bool_mask = r.get_mask(shape=fits.getdata(refimg).shape)
+    int_mask = np.array(bool_mask, dtype=np.int)
+
+    fits.writeto(
+        outfile,
+        int_mask,
+        header=fits.getheader(refimg),
+        clobber=True)
 
 
 if __name__ == '__main__':
