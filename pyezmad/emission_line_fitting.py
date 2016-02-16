@@ -9,8 +9,10 @@ import numpy as np
 from astropy.table import Table
 from astropy.constants import c
 import astropy.io.fits as fits
+from astropy import log
 import matplotlib.pyplot as plt
 import lmfit
+from pyspeckit.parallel_map import parallel_map
 
 from .utilities import read_emission_linelist, muse_fwhm, sigma2fwhm
 
@@ -97,7 +99,7 @@ def search_lines(hdu, line_list, verbose=True):
                     extname[k] = hdu[iext].header['EXTNAME']
                     keyname[k] = key_line
                     if verbose is True:
-                        print('Key found for %s' % k)
+                        log.info('Key found for %s' % k)
                     break
                 else:
                     iline += 1
@@ -106,7 +108,7 @@ def search_lines(hdu, line_list, verbose=True):
                     extname[k] = hdu[iext].header['EXTNAME']
                     keyname[k] = key_line_old
                     if verbose is True:
-                        print('Key found for %s' % k)
+                        log.info('Key found for %s' % k)
                     break
                 else:
                     iline += 1
@@ -251,8 +253,8 @@ def fit_single_spec(wave, flux, var, vel_star,
         for icomp in range(np.max(ncomp)):
             out_fitting_group['vel_%i' % icomp] = np.nan
             out_fitting_group['sig_%i' % icomp] = np.nan
-            out_fitting_group['evel_%i' % icomp] = np.nan
-            out_fitting_group['esig_%i' % icomp] = np.nan
+            out_fitting_group['errvel_%i' % icomp] = np.nan
+            out_fitting_group['errsig_%i' % icomp] = np.nan
 
         idx_fit = np.zeros(wave.size, dtype=np.bool)
 
@@ -270,7 +272,7 @@ def fit_single_spec(wave, flux, var, vel_star,
                                    wave <= wave[idx_fit].max() + dwfit)
         idx_cont = np.logical_or(idx_cont1, idx_cont2)
         idx_cont = np.logical_and(idx_cont, np.isfinite(var))
-        idx_cont = np.logical_and(idx_cont, np.isfinite(1./var))
+        idx_cont = np.logical_and(idx_cont, np.isfinite(1. / var))
 
         x = wave[idx_fit]
         y = flux[idx_fit]
@@ -348,11 +350,12 @@ def fit_single_spec(wave, flux, var, vel_star,
                             fit_kws=dict(maxfev=maxfev),
                             verbose=verbose)
 
-        print(res_fit.fit_report(show_correl=False))
-        print("res_fit.nfev = ", res_fit.nfev, end='\n')
-        print("res_fit.success = ", res_fit.success, end='\n')
-        print("res_fit.ier = %i" % res_fit.ier, end='\n')
-        print("res_fit.lmdif_message: %s" % res_fit.lmdif_message, end='\n')
+        if verbose is True:
+            log.info(res_fit.fit_report(show_correl=False))
+            log.info("res_fit.nfev = ", res_fit.nfev, end='\n')
+            log.info("res_fit.success = ", res_fit.success, end='\n')
+            log.info("res_fit.ier = %i" % res_fit.ier, end='\n')
+            log.info("res_fit.lmdif_message: %s" % res_fit.lmdif_message, end='\n')
 
         for icomp in range(np.max(ncomp)):
             out_fitting_group['vel_%i' % icomp ] = res_fit.best_values[lname_common[icomp] + '_vel']
@@ -420,6 +423,7 @@ def emission_line_fitting(voronoi_binspec_file,
                           is_checkeach=False,
                           instrument='MUSE',
                           master_linelist=None,
+                          n_thread=12,
                           verbose=True):
     """Fit emission lines to (continuum-subtracted) spectra
     with Voronoi output format.
@@ -466,6 +470,8 @@ def emission_line_fitting(voronoi_binspec_file,
         By default, the list is loaded from
         a file in the ``database`` directory
         of the ``pyezmad`` distribution.
+    n_thread : int
+        Number of processes to be parallelized. The default is 12.
     verbose : bool, optional
         Print more details.
 
@@ -500,7 +506,6 @@ def emission_line_fitting(voronoi_binspec_file,
     elif components is None:
         components = [np.ones_like(llist, dtype=np.int) for llist in linelist_name]
 
-
     # need to import here for some reason...
     from .voronoi import read_stacked_spectra
 
@@ -517,33 +522,61 @@ def emission_line_fitting(voronoi_binspec_file,
 
     res_fitting = np.empty(flux.shape[0], dtype=np.object)
 
-    # It can be parallelized here.  Any volunteers?
-    for i in xrange(flux.shape[0]):
+    t_start = time.time()
 
-        if i % 100 == 0:
-            t_mid = time.time()
-            print("# \n" +
-                  "# %i-th spectra is going to be fit\n" % (i) +
-                  "%f minutes elapsed for the emission line fitting."
-                  % ((t_mid - t_begin) / 60.))
+    def fit_parallel(tup):
+        """Wrapper function for parallel processing.
 
-        res_fitting[i] = fit_single_spec(wave,
-                                         flux[i, :],
-                                         var[i, :],
-                                         # tb_ppxf['vel'][i],
-                                         vel_init[i],
-                                         linelist_name,
-                                         components=components,
-                                         dwfit=dwfit,
-                                         maxdv=maxdv,
-                                         cont_model=cont_model,
-                                         maxfev=maxfev,
-                                         is_checkeach=is_checkeach,
-                                         instrument=instrument,
-                                         linelist=master_linelist,
-                                         verbose=verbose)
-        print("# \n" +
-              "# %i-th spectra has just finished\n" % i, end='\n')
+        Parameters
+        ----------
+        tup : tuple
+            A tuple containing the index of the bin to be fit.
+
+        Returns
+        -------
+        ibin : int
+            Index of the bin which will be used to check
+            if the output array is properly sorted.
+        tmp_res_fitting : numpy.ndarray
+            Numpy array containing the output of the fitting.
+
+        """
+        ibin = tup
+        tmp_res_fitting = fit_single_spec(wave,
+                                          flux[ibin, :],
+                                          var[ibin, :],
+                                          # tb_ppxf['vel'][i],
+                                          vel_init[ibin],
+                                          linelist_name,
+                                          components=components,
+                                          dwfit=dwfit,
+                                          maxdv=maxdv,
+                                          cont_model=cont_model,
+                                          maxfev=maxfev,
+                                          is_checkeach=is_checkeach,
+                                          instrument=instrument,
+                                          linelist=master_linelist,
+                                          verbose=verbose)
+        if ibin % 100 == 0:
+            log.info("Finished fit %i-th bin (%.1f%%). Elapsed time is %.2f minutes." %
+                     (ibin, ((ibin + 1) * 1.) / flux.shape[0] * 100., (time.time() - t_start) / 60.))
+
+        return(ibin, tmp_res_fitting)
+
+    # Parallelization
+    seq = [(i) for i in range(flux.shape[0])]
+    result_all = parallel_map(fit_parallel, seq, numcores=n_thread)
+
+    # Extract indices of bins
+    idx_result0 = [result_all[i][0] for i in range(len(seq))]
+
+    # Check if the output is sorted (as expected)
+    if not np.all(sorted(idx_result0) == idx_result0):
+        raise(ValueError("Index of index array after parallel processing is not sorted."))
+
+    res_fitting = [result_all[i][1] for i in range(len(seq))]
+
+    log.info("Finished fitting all bins.  Writing the output.")
 
     prihdu = fits.PrimaryHDU()
     prihdu.header['MAD EMFIT CONT_MODEL'] \
