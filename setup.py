@@ -14,6 +14,6 @@ setup(name='pyezmad',
       zip_safe=False,
       install_requires=['numpy', 'scipy', 'astropy',
                         'astroquery', 'lmfit', 'mpdaf', 'tqdm'],
-      extra_requires={'plot': ['matplotlib', 'seaborn'],
+      extras_require={'plot': ['matplotlib', 'seaborn'],
                       'electron density': ['pyneb']},
       )

@@ -31,6 +31,10 @@ from numpy import (nansum, nanmax, nanargmin,
 sigma2fwhm = 2. * np.sqrt(2. * np.log(2.))
 
 
+def ordinal(n):
+    return("%d-%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4]))
+
+
 def error_fraction(x1, x2, ex1, ex2):
     """Compute error of x1/x2 when errors of x1 and x2 are given.
     """

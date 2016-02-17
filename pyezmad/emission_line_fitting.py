@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import lmfit
 from pyspeckit.parallel_map import parallel_map
 
-from .utilities import read_emission_linelist, muse_fwhm, sigma2fwhm
+from .utilities import (read_emission_linelist, muse_fwhm, sigma2fwhm,
+                        ordinal)
 
 
 def search_lines(hdu, line_list, verbose=True):
@@ -257,6 +258,7 @@ def fit_single_spec(wave, flux, var, vel_star,
             out_fitting_group['errsig_%i' % icomp] = np.nan
 
         idx_fit = np.zeros(wave.size, dtype=np.bool)
+        idx_cont = np.zeros(wave.size, dtype=np.bool)
 
         for k in range(nline):
             idx_fit_k = np.logical_and(
@@ -264,19 +266,26 @@ def fit_single_spec(wave, flux, var, vel_star,
                 wave <= linelist[linelist_name[j][k]] + dwfit)
             idx_fit = np.logical_or(idx_fit, idx_fit_k)
 
-        idx_fit = np.logical_and(idx_fit, np.isfinite(var))
+            idx_cont_min = np.logical_and(wave >= wave[idx_fit_k].min() - dwfit,
+                                          wave < wave[idx_fit_k].min())
+            idx_cont_max = np.logical_and(wave > wave[idx_fit_k].max(),
+                                          wave <= wave[idx_fit_k].max() + dwfit)
+            idx_cont = np.logical_or(idx_cont, idx_cont_min)
+            idx_cont = np.logical_or(idx_cont, idx_cont_max)
 
-        idx_cont1 = np.logical_and(wave >= wave[idx_fit].min() - dwfit,
-                                   wave < wave[idx_fit].min())
-        idx_cont2 = np.logical_and(wave > wave[idx_fit].max(),
-                                   wave <= wave[idx_fit].max() + dwfit)
-        idx_cont = np.logical_or(idx_cont1, idx_cont2)
+        idx_fit = np.logical_and(idx_fit, np.isfinite(var))
+        idx_fit = np.logical_and(idx_fit, np.isfinite(1. / var))
+
+        # define indices used to estimate continuum flux
+        # idx_cont = np.logical_or(idx_cont1, idx_cont2)
         idx_cont = np.logical_and(idx_cont, np.isfinite(var))
         idx_cont = np.logical_and(idx_cont, np.isfinite(1. / var))
 
         x = wave[idx_fit]
         y = flux[idx_fit]
         w = 1. / np.sqrt(var[idx_fit])
+
+        # print(x, y, w)
 
         models = {}
 
@@ -298,11 +307,14 @@ def fit_single_spec(wave, flux, var, vel_star,
                     "cont_model must be 'const', 'linear' or 'quadratic'."))
 
         # pars = models['cont'].guess(y * 0., x=x)
-        pars = models['cont'].guess(flux[idx_cont], x=wave[idx_cont])
+        pars = models['cont'].guess(flux[idx_cont] * 0. + np.nanmedian(flux[idx_cont]), x=wave[idx_cont])
 
         model = models['cont']
 
+        # Initial guess of flux is done by integrating spectra and dividing it by the number of lines.
+        # When it's negative or too small value, it's replaced by some number (max of absolute value or 300).
         init_flux = np.trapz(y - np.nanmedian(flux[idx_cont]), x=x) / nline
+        init_flux = np.max([np.abs(init_flux), 300])
 
         lname_common = []
 
@@ -352,10 +364,10 @@ def fit_single_spec(wave, flux, var, vel_star,
 
         if verbose is True:
             log.info(res_fit.fit_report(show_correl=False))
-            log.info("res_fit.nfev = ", res_fit.nfev, end='\n')
-            log.info("res_fit.success = ", res_fit.success, end='\n')
-            log.info("res_fit.ier = %i" % res_fit.ier, end='\n')
-            log.info("res_fit.lmdif_message: %s" % res_fit.lmdif_message, end='\n')
+            log.info("res_fit.nfev = %i" % res_fit.nfev)
+            log.info("res_fit.success = %i" % res_fit.success)
+            log.info("res_fit.ier = %i" % res_fit.ier)
+            log.info("res_fit.lmdif_message: %s" % res_fit.lmdif_message)
 
         for icomp in range(np.max(ncomp)):
             out_fitting_group['vel_%i' % icomp ] = res_fit.best_values[lname_common[icomp] + '_vel']
@@ -399,11 +411,17 @@ def fit_single_spec(wave, flux, var, vel_star,
 
         # plt.ion()
         if is_checkeach is True:
+            xx = np.empty(wave.size) + np.nan
+            yy = np.empty(wave.size) + np.nan
+            ww = np.empty(wave.size) + np.nan
+            xx[idx_fit] = x
+            yy[idx_fit] = y
+            ww[idx_fit] = w
             comps = res_fit.eval_components(x=x)
             for key, comp in comps.items():
                 plt.plot(x, comp, '--', c='0.2', lw=1, label=key)
-            plt.plot(x, y, 'k-')
-            plt.fill_between(x, 1. / w, color='0.5', alpha=0.5)
+            plt.plot(xx, yy, 'k-')
+            plt.fill_between(xx, 1. / ww, color='0.5', alpha=0.5)
             plt.plot(x, res_fit.best_fit, 'r-', lw=2, alpha=0.7)
             plt.show()
 
@@ -510,6 +528,8 @@ def emission_line_fitting(voronoi_binspec_file,
     from .voronoi import read_stacked_spectra
 
     wave, flux, var = read_stacked_spectra(voronoi_binspec_file)
+    nbins = flux.shape[0]
+    bins_split = np.array_split(np.arange(nbins), n_thread)
 
     if ppxf_output_file is None:
         if isinstance(velocity, int) or isinstance(velocity, float):
@@ -537,12 +557,13 @@ def emission_line_fitting(voronoi_binspec_file,
         ibin : int
             Index of the bin which will be used to check
             if the output array is properly sorted.
-        tmp_res_fitting : numpy.ndarray
+        result_fitting_single : numpy.ndarray
             Numpy array containing the output of the fitting.
 
         """
         ibin = tup
-        tmp_res_fitting = fit_single_spec(wave,
+
+        result_fitting_single = fit_single_spec(wave,
                                           flux[ibin, :],
                                           var[ibin, :],
                                           # tb_ppxf['vel'][i],
@@ -558,13 +579,19 @@ def emission_line_fitting(voronoi_binspec_file,
                                           linelist=master_linelist,
                                           verbose=verbose)
         if ibin % 100 == 0:
-            log.info("Finished fit %i-th bin (%.1f%%). Elapsed time is %.2f minutes." %
-                     (ibin, ((ibin + 1) * 1.) / flux.shape[0] * 100., (time.time() - t_start) / 60.))
+            for i_thread, arr_split in enumerate(bins_split):
+                if ibin in arr_split:
+                    nbins_split = arr_split.size
+                    percent = (ibin - arr_split[0]) * 1. / nbins_split * 100.
+                    break
+            log.info("Finished fit %9s bin (%5.1f%% in %5s thread). Elapsed time is %.2f minutes." %
+                     (ordinal(ibin), percent, ordinal(i_thread), (time.time() - t_start) / 60.))
 
-        return(ibin, tmp_res_fitting)
+        return(ibin, result_fitting_single)
 
     # Parallelization
     seq = [(i) for i in range(flux.shape[0])]
+    # print(seq)
     result_all = parallel_map(fit_parallel, seq, numcores=n_thread)
 
     # Extract indices of bins
