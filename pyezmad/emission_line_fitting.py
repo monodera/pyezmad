@@ -321,6 +321,8 @@ def fit_single_spec(wave, flux, var, vel_star,
         for icomp in range(np.max(ncomp)):
 
             iline = 0
+            if icomp > 0:
+                init_flux /= 5.
 
             for k in range(nline):
 
@@ -335,8 +337,6 @@ def fit_single_spec(wave, flux, var, vel_star,
                     # MO: here, I force the flux of secondary or higher component
                     #     to be 10x weaker than the primary component.
                     #     Maybe, it's not a good assumption in some cases...
-                    if icomp > 0:
-                        init_flux /= 5.
                     pars[lname + '_flux'].set(init_flux, min=0.)
                     pars[lname + '_lam'].set(init_lam, vary=False)
 
