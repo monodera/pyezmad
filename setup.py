@@ -2,18 +2,22 @@
 
 from setuptools import setup
 
+# Generate version.py
+__version__ = None
+with open('zap/version.py') as f:
+    exec(f.read())
+
 setup(name='pyezmad',
-      version='0.1.40',
+      version=__version__,
       description='Python MAD Analysis Tools',
       url='https://bitbucket.org/monodera/pyezmad',
       author='Masato Onodera',
       author_email='monodera@phys.ethz.ch',
-      # license='BSD',
+      license='MIT',
       packages=['pyezmad'],
       package_data={'pyezmad': ['database/emission_lines.dat']},
       zip_safe=False,
       install_requires=['numpy', 'scipy', 'astropy',
-                        'astroquery', 'lmfit', 'mpdaf', 'tqdm'],
-      extras_require={'plot': ['matplotlib', 'seaborn'],
-                      'electron density': ['pyneb']},
+                        'astroquery', 'lmfit', 'mpdaf', 'tqdm',
+                        'matplotlib', 'seaborn', 'pyneb'],
       )
