@@ -23,7 +23,36 @@ from .stellar_population import compute_equivalent_width
 
 
 class BinSpecAnalysis:
-    """A class to work with Voronoi binned spectra.
+    """
+    A class to work with Voronoi binned spectra
+    after basic measurements.
+
+    Attributes
+    ----------
+    mask : numpy.ndarray
+    mask_img : numpy.ndarray
+    npix_img : numpy.ndarray
+    segimg : numpy.ndarray
+    r_ell : numpy.ndarray
+    eqw : numpy.ndarray
+    eqw_image : numpy.ndarray
+
+    Methods
+    -------
+    read_binspec(binspec)
+        Read binned spectra formatted as (n_bins, n_wave).
+    read_voronoi(voronoi_xy, voronoi_bininfo)
+        Read information on Voronoi binning.
+    read_segimg(segimg)
+        Read the segmentation image of Voronoi bins.
+    read_ppxf(ppxf, ppxf_dir1, ppxf_prefix1, ppxf_dir2, ppxf_prefix2)
+        Read pPXF outputs.
+    read_emfit(emfit)
+        Read emission line fitting outputs.
+    calc_elliptical_radius(xc, yc, pa, ellip)
+        Compute semi-major axis equivalent radius of each Voronoi bin.
+    calc_equivalent_width(line=None, ppxf_npy_dir=None, ppxf_npy_prefix=None)
+        Compute equivalent widths of a given emission line.
     """
     def __init__(self,
                  binspec=None,
@@ -69,6 +98,29 @@ class BinSpecAnalysis:
 
         if emfit is not None:
             self.read_emfit(emfit)
+
+    @property
+    def mask(self):
+        """
+        Get the mask array with a length of number of Voronoi bins.
+        Bins are masked if the value is `True`.
+        """
+        return(self.__mask)
+
+    @property
+    def mask_img(self):
+        """
+        Get the mask image with a shape identical to the segmentation image.
+        Pixels are masked if the value is `True`.
+        """
+        return(self.__mask_img)
+
+    @property
+    def npix_img(self):
+        """
+        Get the image showing number of pixels at each Voronoi bin.
+        """
+        return(self.__npix_img)
 
     # data readers
     def read_binspec(self, binspec):
