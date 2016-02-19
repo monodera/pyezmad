@@ -4,7 +4,7 @@ from setuptools import setup
 
 # Generate version.py
 __version__ = None
-with open('zap/version.py') as f:
+with open('pyezmad/version.py') as f:
     exec(f.read())
 
 setup(name='pyezmad',
