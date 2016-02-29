@@ -127,14 +127,17 @@ class EmissionLine:
             line2 = 'Hbeta'
 
         if component is not None:
-            line1 = line1 + '_%i' % component
-            line2 = line2 + '_%i' % component
+            line1_i = line1 + '_%i' % component
+            line2_i = line2 + '_%i' % component
+        else:
+            line1_i = line1
+            line2_i = line2
 
-        extname, keyname = search_lines(self.__hdu, [line1, line2])
-        f1 = self.__hdu[extname[line1]].data['f_' + line1]
-        f2 = self.__hdu[extname[line2]].data['f_' + line2]
-        ef1 = self.__hdu[extname[line1]].data['ef_' + line1]
-        ef2 = self.__hdu[extname[line2]].data['ef_' + line2]
+        extname, keyname = search_lines(self.__hdu, [line1_i, line2_i])
+        f1 = self.__hdu[extname[line1]].data['f_' + line1_i]
+        f2 = self.__hdu[extname[line2]].data['f_' + line2_i]
+        ef1 = self.__hdu[extname[line1]].data['ef_' + line1_i]
+        ef2 = self.__hdu[extname[line2]].data['ef_' + line2_i]
         r_obs = f1 / f2
         err_r_obs = error_fraction(f1, f2, ef1, ef2)
 
