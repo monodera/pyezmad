@@ -178,19 +178,27 @@ class EmissionLine:
     def calc_sfr_density(self,
                          line='Halpha',
                          extcurve='CCM',
+                         component=None,
                          distance=None,
-                         scale='kpc'):
+                         scale='kpc',
+                         bunit=1e-20):
 
-        if line != 'Halpha':
+        if not ('Halpha' in line):
+            # line != 'Halpha':
             raise(
                 ValueError(
-                    "Sorry, an input line other than Halpha is not supposed."))
+                    "Sorry, an input line other than Halpha is not supported."))
 
-        extname, keyname = search_lines(self.__hdu, [line])
+        if component is not None:
+            line_i = line + '_%i' % component
+        else:
+            line_i = line
+
+        extname, keyname = search_lines(self.__hdu, [line_i])
         wave1 = self.__linelist[line]
 
-        f_obs = self.__hdu[extname[line]].data['f_' + line] * 1e-20
-        ef_obs = self.__hdu[extname[line]].data['ef_' + line] * 1e-20
+        f_obs = self.__hdu[extname[line_i]].data['f_' + line_i] * bunit
+        ef_obs = self.__hdu[extname[line_i]].data['ef_' + line_i] * bunit
 
         (self.__sfr_density,
          self.__e_sfr_density,
@@ -258,22 +266,30 @@ class EmissionLine:
 
     def calc_metallicity(self, calib=None, unred=False,
                          ebv=None, e_ebv=None,
-                         extcurve='CCM'):
+                         extcurve='CCM', component=None):
 
         if ebv is None:
             ebv = self.__ebv
         if e_ebv is None:
             e_ebv = self.__e_ebv
 
-        extname, keyname = search_lines(self.__hdu, self.__linelist)
+        if component is not None:
+            linelist_i = {}
+            for k, v in self.__linelist.items():
+                linelist_i[k + '_%i' % component] = v
+        else:
+            linelist_i = self.__linelist
+
+        extname, keyname = search_lines(self.__hdu, linelist_i)
 
         fdic = dict()
         efdic = dict()
 
         for k in self.__linelist.keys():
-            if k in keyname:
-                fdic[k] = self.__hdu[extname[k]].data['f_' + k]
-                efdic[k] = self.__hdu[extname[k]].data['ef_' + k]
+            kk = k + '_%i' % component
+            if kk in keyname:
+                fdic[k] = self.__hdu[extname[kk]].data['f_' + kk]
+                efdic[k] = self.__hdu[extname[kk]].data['ef_' + kk]
 
         self.__oh12, self.__e_oh12 \
             = compute_metallicity(fdic, efdic=efdic, calib=calib,
@@ -308,12 +324,17 @@ class EmissionLine:
     def e_oh12_img(self):
         return(self.__e_oh12_img)
 
-    def calc_electron_density(self, line1=None, line2=None, tem=1e4):
+    def calc_electron_density(self, line1=None, line2=None, tem=1e4, component=None):
+
+        line1_i, line2_i = line1, line2
+        if component is not None:
+            line1_i = line1 + '_%i' % component
+            line2_i = line2 + '_%i' % component
 
         if line1[0:3] == 'SII':
-            extname, keyname = search_lines(self.__hdu, [line1, line2])
-            ratio = (self.__hdu[extname[line1]].data['f_' + line1] /
-                     self.__hdu[extname[line2]].data['f_' + line2])
+            extname, keyname = search_lines(self.__hdu, [line1_i, line2_i])
+            ratio = (self.__hdu[extname[line1_i]].data['f_' + line1_i] /
+                     self.__hdu[extname[line2_i]].data['f_' + line2_i])
             atom = pn.Atom('S', 2)
             self.__ne = compute_electron_density(ratio,
                                                  wave1=self.__linelist[line1],

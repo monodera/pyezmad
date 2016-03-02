@@ -77,6 +77,7 @@ def compute_ppxf_stellar_population(nbin,
 
 
 def compute_equivalent_width(line=None,
+                             component=None,
                              ppxf_npy_dir=None,
                              ppxf_npy_prefix=None,
                              hdu_em=None,
@@ -87,9 +88,18 @@ def compute_equivalent_width(line=None,
         if isinstance(line, str) is not True:
             raise(TypeError("'line' must be a string."))
 
-        extname, keyname = search_lines(hdu_em, [line])
+        if component is not None:
+            line_i = line + '_%i' % component
+            key_vel = 'vel_%i' % component
+            key_sig = 'sig_%i' % component
+        else:
+            line_i = line
+            key_vel = 'vel'
+            key_sig = 'sig'
 
-        nbin = hdu_em[extname[line]].data['f_' + line].size
+        extname, keyname = search_lines(hdu_em, [line_i])
+
+        nbin = hdu_em[extname[line_i]].data['f_' + line_i].size
 
         eqw = np.empty(nbin) + np.nan
 
@@ -102,12 +112,12 @@ def compute_equivalent_width(line=None,
 
             if pp is not None:
                 g = gaussian(pp.lam,
-                             hdu_em[extname[line]].data['f_' + line][i],
-                             hdu_em[extname[line]].data['vel'][i],
-                             hdu_em[extname[line]].data['sig'][i],
+                             hdu_em[extname[line_i]].data['f_' + line_i][i],
+                             hdu_em[extname[line_i]].data[key_vel][i],
+                             hdu_em[extname[line_i]].data[key_sig][i],
                              linelist[line])
 
-                zz = 1. + (hdu_em[extname[line]].data['vel'][i] *
+                zz = 1. + (hdu_em[extname[line_i]].data[key_vel][i] *
                            u.km / u.s / const.c.to('km/s'))
                 idx = np.logical_and(pp.lam > (linelist[line] - dw) * zz,
                                      pp.lam < (linelist[line] + dw) * zz)

@@ -166,6 +166,7 @@ class BinSpecAnalysis:
 
     def calc_equivalent_width(self,
                               line=None,
+                              component=None,
                               ppxf_npy_dir=None,
                               ppxf_npy_prefix=None):
 
@@ -184,6 +185,7 @@ class BinSpecAnalysis:
             self.__eqw[lname] \
                 = compute_equivalent_width(
                     line=lname,
+                    component=component,
                     ppxf_npy_dir=ppxf_npy_dir,
                     ppxf_npy_prefix=ppxf_npy_prefix,
                     hdu_em=self.em.hdu)
