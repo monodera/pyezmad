@@ -5,6 +5,7 @@ import time
 import numpy as np
 from astropy.table import Table, vstack
 import astropy.io.fits as fits
+from astropy import log
 import matplotlib.pyplot as plt
 from tqdm import trange
 
@@ -181,6 +182,7 @@ def run_voronoi_binning(infile, outprefix,
     # Voronoi binning
     #
     t_begin = time.time()
+    log.info("Number of valid pixels: %i" % x[idx_valid].size)
     binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = voronoi_2d_binning(
         x[idx_valid], y[idx_valid], signal[idx_valid], noise[idx_valid],
         target_sn, plot=False, quiet=quiet)

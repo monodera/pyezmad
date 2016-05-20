@@ -598,7 +598,7 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
             t_begin_each = time.time()
             try:
                 pp = ppxf(stars_templates, galaxy, noise, velscale,
-                          start=[vel_init, sigma_init],
+                          start=[vel_init, sigma_init, 0., 0.],
                           lam=np.exp(logLam_galaxy),
                           goodpixels=goodPixels, vsyst=dv,
                           **ppxf_keydic)
