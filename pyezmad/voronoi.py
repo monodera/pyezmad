@@ -7,6 +7,7 @@ from astropy.table import Table, vstack
 import astropy.io.fits as fits
 from astropy import log
 import matplotlib.pyplot as plt
+
 from tqdm import trange
 
 from voronoi_2d_binning import voronoi_2d_binning
@@ -88,6 +89,8 @@ def make_snlist_to_voronoi(infile, wave_center=5750., dwave=25.):
 
     snmap = signal / np.sqrt(var)
 
+    cube = None
+
     return(np.ravel(xx), np.ravel(yy), np.ravel(signal),
            np.ravel(np.sqrt(var)), snmap)
 
@@ -98,6 +101,7 @@ def run_voronoi_binning(infile, outprefix,
                         maskfile=None,
                         invert_mask=None,
                         min_sn=None,
+                        pixelsize=1,
                         quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
@@ -126,6 +130,12 @@ def run_voronoi_binning(infile, outprefix,
         Flag to determine whether the mask should be inverted or not.
     min_sn : float, optional
         Minimum S/N per pixel to be binned.
+    pixelsize: float, optional
+        Pixel size of the input coordinate system.
+        If X and Y are just pixel coordinates, the default value,
+        i.e., pixelsize=1, should be fine. When pixelsize=None,
+        the program will uses scipy.spatial.distance.pdist()
+        which uses a lot of pixels (essentially Npix^2).
 
     Returns
     -------
@@ -140,7 +150,8 @@ def run_voronoi_binning(infile, outprefix,
     # Compute signal and noise at each pixel
     #
     t_begin = time.time()
-    x, y, signal, noise, snmap = make_snlist_to_voronoi(infile, wave_center,
+    x, y, signal, noise, snmap = make_snlist_to_voronoi(infile,
+                                                        wave_center,
                                                         dwave)
     t_end = time.time()
     print("Time Elapsed for Signal and Noise Computation: %.2f [seconds]" %
@@ -151,6 +162,7 @@ def run_voronoi_binning(infile, outprefix,
 
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
+    # idx_valid = np.logical_and(idx_valid, noise > 0.)
 
     # mask
     # it's a bit complicated as we defined to use 1 for masked pixels...
@@ -185,7 +197,7 @@ def run_voronoi_binning(infile, outprefix,
     log.info("Number of valid pixels: %i" % x[idx_valid].size)
     binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = voronoi_2d_binning(
         x[idx_valid], y[idx_valid], signal[idx_valid], noise[idx_valid],
-        target_sn, plot=False, quiet=quiet)
+        target_sn, plot=False, pixelsize=pixelsize, quiet=quiet)
     t_end = time.time()
     print("Time Elapsed for Voronoi Binning: %.2f [seconds]" %
           (t_end - t_begin))
@@ -455,14 +467,16 @@ def subtract_ppxf_continuum_simple(voronoi_binspec_file, ppxf_npy_dir,
     flux_cont_sub = np.empty_like(flux) + np.nan
     var_cont_sub = np.empty_like(var) + np.nan
 
-    for i in range(nbins):
+    # for i in range(nbins):
+    for i in trange(nbins, desc='Subtracting Stellar Continuum', leave=True):
         pp_npy = os.path.join(ppxf_npy_dir, ppxf_npy_prefix + '_%06i.npy' % i)
         pp = np.load(pp_npy)[0]
 
-        best = np.interp(wave, pp.lam, pp.bestfit, left=np.nan, right=np.nan)
+        if pp is not None:
+            best = np.interp(wave, pp.lam, pp.bestfit, left=np.nan, right=np.nan)
 
-        flux_cont_sub[i, :] = flux[i, :] - best
-        var_cont_sub[i, np.isfinite(best)] = var[i, np.isfinite(best)]
+            flux_cont_sub[i, :] = flux[i, :] - best
+            var_cont_sub[i, np.isfinite(best)] = var[i, np.isfinite(best)]
 
     hdu = fits.open(voronoi_binspec_file)
     hdu['FLUX'].data = flux_cont_sub
