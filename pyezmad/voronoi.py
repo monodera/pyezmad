@@ -102,6 +102,10 @@ def run_voronoi_binning(infile, outprefix,
                         invert_mask=None,
                         min_sn=None,
                         pixelsize=1,
+                        xmin=None,
+                        xmax=None,
+                        ymin=None,
+                        ymax=None,
                         quiet=False):
     """All-in-one function to run Voronoi 2D binning.
 
@@ -130,12 +134,14 @@ def run_voronoi_binning(infile, outprefix,
         Flag to determine whether the mask should be inverted or not.
     min_sn : float, optional
         Minimum S/N per pixel to be binned.
-    pixelsize: float, optional
+    pixelsize : float, optional
         Pixel size of the input coordinate system.
         If X and Y are just pixel coordinates, the default value,
         i.e., pixelsize=1, should be fine. When pixelsize=None,
         the program will uses scipy.spatial.distance.pdist()
-        which uses a lot of pixels (essentially Npix^2).
+        which uses a lot of memories (essentially Npix^2).
+    xmin, xmax, ymin, ymax : int or float, optional
+        Define the XY area of the cube to be considered for the Voronoi binning.
 
     Returns
     -------
@@ -163,6 +169,15 @@ def run_voronoi_binning(infile, outprefix,
     # select indices of valid pixels
     idx_valid = np.logical_and(np.isfinite(signal), np.isfinite(noise))
     # idx_valid = np.logical_and(idx_valid, noise > 0.)
+
+    if xmin is not None:
+        idx_valid = np.logical_and(idx_valid, x >= xmin)
+    if xmax is not None:
+        idx_valid = np.logical_and(idx_valid, x <= xmax)
+    if ymin is not None:
+        idx_valid = np.logical_and(idx_valid, y >= ymin)
+    if ymax is not None:
+        idx_valid = np.logical_and(idx_valid, y <= ymax)
 
     # mask
     # it's a bit complicated as we defined to use 1 for masked pixels...

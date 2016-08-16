@@ -264,7 +264,8 @@ def _gaussian_filter1d(spec, sig):
     instead of :py:func:`~numpy:numpy.sum`.
     """
 
-    sig = sig.clip(0.01)  # forces zero sigmas to have 0.01 pixels
+    # sig = sig.clip(0.01)  # forces zero sigmas to have 0.01 pixels
+    sig = sig.clip(0.01, np.inf)  # forces zero sigmas to have 0.01 pixels
     p = int(np.ceil(np.max(3 * sig)))
     m = 2 * p + 1  # kernel size
     x2 = np.linspace(-p, p, m)**2
@@ -427,7 +428,8 @@ def setup_spectral_library(file_template_list, velscale,
         else:
             raise(TypeError("FWHM_inst must be a scalar or numpy.ndarray."))
 
-    FWHM_diff = np.sqrt((FWHM_inst_array**2 - FWHM_templ**2).clip(0.))
+    # FWHM_diff = np.sqrt((FWHM_inst_array**2 - FWHM_templ**2).clip(0.))
+    FWHM_diff = np.sqrt((FWHM_inst_array**2 - FWHM_templ**2).clip(0., np.inf))
 
     # Sigma difference in pixels
     sigma = FWHM_diff / sigma2fwhm / h2['CDELT1']
@@ -463,16 +465,17 @@ def setup_spectral_library(file_template_list, velscale,
 
 
 def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
-                                        temp_list=None,
-                                        vel_init=1000., sigma_init=50.,
-                                        dv_mask=200.,
-                                        wmin_fit=4800, wmax_fit=7000.,
-                                        dw_edge=100.,
-                                        n_thread=12,
-                                        ext_data=1, ext_var=2,
-                                        FWHM_inst=None, FWHM_tem=2.51,
-                                        ppxf_kwargs=None, linelist=None,
-                                        is_mask_telluric=True):
+                                    temp_list=None,
+                                    vel_init=1000., sigma_init=50.,
+                                    dv_mask=200.,
+                                    wmin_fit=4800, wmax_fit=7000.,
+                                    dw_edge=100.,
+                                    n_thread=12,
+                                    ext_data=1, ext_var=2,
+                                    FWHM_inst=None, FWHM_tem=2.51,
+                                    ppxf_kwargs=None, linelist=None,
+                                    is_mask_telluric=True,
+                                    nbin_max=None):
     """Run pPXF for all Voronoi binned spectra made with
     :py:meth:`pyezmad.voronoi.stack`.
 
@@ -529,15 +532,20 @@ def run_voronoi_stacked_spectra_all(infile, npy_prefix, npy_dir='.',
         e.g., ``['Halpha', 'Hbeta', 'OIII5007']``.
     is_mask_telluric : bool, optional
         Flag to determine whether to mask telluric absorption band or not.
+    nbin_max : int, optional
+        Limit computation to the first ``nbin_max`` bins.
     """
 
     if not os.path.exists(npy_dir):
-        os.mkdir(npy_dir)
+        os.makedirs(npy_dir)
 
     wave0, galaxy0, noise0 = read_stacked_spectra(infile,
                                                   ext_data=ext_data,
                                                   ext_var=ext_var)
-    nbins = galaxy0.shape[0]
+    if nbin_max is not None:
+        nbins = nbin_max
+    else:
+        nbins = galaxy0.shape[0]
 
     # ispec = 0 # absorption dominated spectra
 
